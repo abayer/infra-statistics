@@ -91,7 +91,7 @@ withPool(5) {
 
 scratchDbs.each { dbKey, partialDb ->
     println "merging ${dbKey}..."
-    DBHelper.mergeDbs(workingDir, "stats.db", "${dbKey}_stats.db")
+    DBHelper.mergeDbs(workingDir, "stats.db", dbKey)
 }
 
 

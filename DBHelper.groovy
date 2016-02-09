@@ -37,14 +37,19 @@ class DBHelper {
         return db;
     }
 
-    def static mergeDbs(File workingDir, String destDbName, String originDbName) {
+    def static mergeDbs(File workingDir, String destDbName, String originDbKey) {
         def destDb = setupDB(workingDir, destDbName)
-        def attachCmd = "ATTACH '" + workingDir.absolutePath + "/" + originDbName + "' AS originDb"
-        println "attach: ${attachCmd}"
-        destDb.execute(attachCmd)
-        ["jenkins", "plugin", "job", "node", "executor", "importedfile"].each { table ->
-            println "Inserting ${originDbName}:${table}"
-            destDb.execute("INSERT INTO " + table + " SELECT * FROM originDb." + table)
+        def originDbName = "${originDbKey}_stats.db"
+        if (doImport(destDb, "${originDbKey}.json.gz")) {
+            def attachCmd = "ATTACH '" + workingDir.absolutePath + "/" + originDbName + "' AS originDb"
+            println "attach: ${attachCmd}"
+            destDb.execute(attachCmd)
+            ["jenkins", "plugin", "job", "node", "executor", "importedfile"].each { table ->
+                println "Inserting ${originDbName}:${table}"
+                destDb.execute("INSERT INTO " + table + " SELECT * FROM originDb." + table)
+            }
+        } else {
+            println "Already imported ${originDbKey}"
         }
     }
 
