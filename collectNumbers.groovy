@@ -73,18 +73,19 @@ class NumberCollector {
     }
 }
 
-def workingDir = new File("target")
+File workingDir = new File("target")
 def scratchDbs = [:]
 
 workingDir.eachFileMatch( ~".*json.gz" ) { file ->
     def fileKey = file.name.replaceAll('.json.gz', '')
+    println "fileKey: ${fileKey}"
     scratchDbs[fileKey] = DBHelper.setupDB(workingDir, "${fileKey}_stats.db")
 }
 
 withPool(5) {
     scratchDbs.eachParallel { dbKey, db ->
         println "Handling ${dbKey}"
-        new NumberCollector(workingDir, db).run("${dbKey}.json.gz")
+        new NumberCollector(workingDir, db).run("${workingDir.absolutePath}/${dbKey}.json.gz")
     }
 }
 

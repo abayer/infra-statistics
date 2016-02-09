@@ -17,6 +17,7 @@ class DBHelper {
         // db = groovy.sql.Sql.newInstance("jdbc:sqlite::memory:","org.sqlite.JDBC")
 
         // persitent
+        println "dbfile: ${dbFile.absolutePath}"
         def db = groovy.sql.Sql.newInstance("jdbc:sqlite:"+dbFile.absolutePath,"org.sqlite.JDBC")
 
         if(!dbExists){
