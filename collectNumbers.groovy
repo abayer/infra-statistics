@@ -1,11 +1,15 @@
 #!/usr/bin/env groovy
+import groovyx.gpars.GParsPool
+
 // push *.json.gz into a local SQLite database
 import org.sqlite.*
+import static groovyx.gpars.GParsPool.withPool
 
 @Grapes([
-    @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.13'),
-    @Grab('org.xerial:sqlite-jdbc:3.7.2'),
-    @GrabConfig(systemClassLoader=true)
+        @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.13'),
+        @Grab('org.xerial:sqlite-jdbc:3.7.2'),
+        @Grab('org.codehaus.gpars:gpars:1.2.1'),
+        @GrabConfig(systemClassLoader=true)
 ])
 
 
@@ -70,8 +74,25 @@ class NumberCollector {
 }
 
 def workingDir = new File("target")
-def db = DBHelper.setupDB(workingDir)
-new NumberCollector(workingDir, db).run(args)
+def scratchDbs = [:]
+
+workingDir.eachFileMatch( ~".*json.gz" ) { file ->
+    def fileKey = file.name.replaceAll('.json.gz', '')
+    scratchDbs[fileKey] = DBHelper.setupDB(workingDir, "${fileKey}_stats.db")
+}
+
+withPool(5) {
+    scratchDbs.eachParallel { dbKey, db ->
+        println "Handling ${dbKey}"
+        new NumberCollector(workingDir, db).run("${dbKey}.json.gz")
+    }
+}
+
+scratchDbs.each { dbKey, partialDb ->
+    println "merging ${dbKey}..."
+    DBHelper.mergeDbs(workingDir, "stats.db", "${dbKey}_stats.db")
+}
+
 
 
 

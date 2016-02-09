@@ -3,9 +3,13 @@ import java.sql.*
 
 class DBHelper {
 
-    def static setupDB(workingDir){
+    def static setupDB(workingDir) {
+        return setupDB(workingDir, "stats.db")
+    }
 
-        def dbFile = new File(workingDir, "stats.db")
+    def static setupDB(workingDir, String dbName){
+
+        def dbFile = new File(workingDir, dbName)
 
         boolean dbExists = dbFile.exists()
 
@@ -30,6 +34,15 @@ class DBHelper {
         }
 
         return db;
+    }
+
+    def static mergeDbs(File workingDir, String destDbName, String originDbName) {
+        def destDb = setupDB(workingDir, destDbName)
+        destDb.execute("ATTACH \"${workingDir.path}/${originDbName}\" AS originDb")
+        ["jenkins", "plugin", "job", "node", "executor", "importedfile"].each { table ->
+            println "Inserting ${originDbName}:${table}"
+            destDb.execute("INSERT INTO ${table} SELECT * FROM originDb.${table}")
+        }
     }
 
 
