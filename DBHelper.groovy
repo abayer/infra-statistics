@@ -39,12 +39,12 @@ class DBHelper {
 
     def static mergeDbs(File workingDir, String destDbName, String originDbName) {
         def destDb = setupDB(workingDir, destDbName)
-        def attachCmd = "ATTACH '${originDbName}' AS originDb"
+        def attachCmd = "ATTACH '" + workingDir.absolutePath + "/" + originDbName + "' AS originDb"
         println "attach: ${attachCmd}"
         destDb.execute(attachCmd)
         ["jenkins", "plugin", "job", "node", "executor", "importedfile"].each { table ->
             println "Inserting ${originDbName}:${table}"
-            destDb.execute("INSERT INTO ${table} SELECT * FROM originDb.${table}")
+            destDb.execute("INSERT INTO " + table + " SELECT * FROM originDb." + table)
         }
     }
 
