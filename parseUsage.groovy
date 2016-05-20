@@ -21,6 +21,8 @@ def parseArgs(cliArgs) {
     cli._(longOpt:'timestamp', args:1, required:false, "Base timestamp for logs - i.e., '201112'")
 
     cli._(longOpt:'incremental', args:0, required:false, "Parse incrementally based on the available files in --logs and --output")
+
+    cli._(longOpt:'mongoPort', args:1, required:false, "Port for Mongo to use - defaults to 27017")
     
     def options = cli.parse(cliArgs)
 
@@ -34,6 +36,7 @@ def parseArgs(cliArgs) {
 def argResult = parseArgs(this.args)
 def logDir=new File(argResult.logs)
 def outputDir=new File(argResult.output);
+def mongoPort = argResult.mongoPort ? Integer.valueOf(argResult.mongoPort) : 27017
 
 if (argResult.incremental) {
     byMonth=[:] as TreeMap
@@ -51,7 +54,7 @@ if (argResult.incremental) {
         if (new File(outputDir,"${t}.json.gz").exists()) {
             println "Skipping ${t}.json.gz as it already exists"
         } else {
-            process(t,logDir,outputDir);
+            process(t,logDir,outputDir, mongoPort);
         }
     }
 } else {
@@ -61,8 +64,8 @@ if (argResult.incremental) {
     process(argResult.timestamp, logDir, outputDir);
 }
 
-def process(String timestamp/*such as '201112'*/, File logDir, File outputDir) {
-    def mongoConnection = new GMongo("127.0.0.1", 27017)
+def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, int mongoPort) {
+    def mongoConnection = new GMongo("127.0.0.1", mongoPort)
     def mongoDb = mongoConnection.getDB("test")
     def mColl = mongoDb.jenkins
     mColl.drop()
