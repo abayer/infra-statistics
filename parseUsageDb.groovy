@@ -69,8 +69,8 @@ if (argResult.incremental) {
 }
 
 def instanceRowId(DataSet instances, String instanceId) {
-    if (instances.findAll { it.identifier == instanceId }.firstRow() == null) {
-        instances.add(identifier: instanceId)
+    if (instances.findAll { it.identifier == "${instanceId}" }.firstRow() == null) {
+        instances.add(identifier: "${instanceId}")
         println "adding instance ${instanceId}"
     }
     return instances.findAll { it.identifier == instanceId }.firstRow().id
