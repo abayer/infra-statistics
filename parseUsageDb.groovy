@@ -68,95 +68,90 @@ if (argResult.incremental) {
     process(argResult.timestamp, logDir, outputDir, mongoPort);
 }
 
-def instanceRowId(Sql db, String instanceId) {
-    def id
-    def rows = db.rows("select id from instance where identifier = ${instanceId}")
+def getIDFromQuery(Sql db, GString query) {
+    def rows = db.rows(query)
     if (rows != null && !rows.isEmpty()) {
-        id = rows.first().get("id")
+        return rows.first().get("id")
     }
+    return null
+}
+
+def addRow(Sql db, String table, String field, String value) {
+    return db.executeInsert("insert into ${table} (${field}) values (${value})")[0][0]
+}
+
+def addRow(Sql db, String table, Map<String,Object> fields) {
+    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().join(',')})")[0][0]
+}
+
+def getRowId(Sql db, String table, String field, String value) {
+    def id = getIDFromQuery(db, "select id from ${table} where ${field} = ${value}")
     if (id == null) {
-        id = db.executeInsert("insert into instance (identifier) values (${instanceId})")[0][0]
-        println "adding instance ${instanceId} to id ${id}"
+        id = addRow(db, table, field, value)
+        println "adding ${table} ${value} to id ${id}"
     }
     return id
 }
 
-def jenkinsVersionRowId(DataSet jenkinsVersions, String versionString) {
-    if (jenkinsVersions.findAll { it.version_string == versionString }.firstRow() == null) {
-        jenkinsVersions.add(version_string: versionString)
-        println "adding version ${versionString}"
+def getRowId(Sql db, String table, Map<String,Object> fields) {
+    def id = getIDFromQuery(db, "select id from ${table} where ${fields.collect { "${it.key} = ${it.value}" }.join(" AND ") }")
+    if (id == null) {
+        id = addRow(db, table, fields)
+        println "adding ${table} ${fields} to id ${id}"
     }
-    return jenkinsVersions.findAll { it.version_string == versionString }.firstRow().id
+    return id
 }
 
-def containerRowId(DataSet containers, String containerString) {
-    if (containers.findAll { it.container_name == containerString }.firstRow() == null) {
-        containers.add(container_name: containerString)
-        println "adding container ${containerString}"
-    }
-    return containers.findAll { it.container_name == containerString }.firstRow().id
+def instanceRowId(Sql db, String instanceId) {
+    return getRowId(db, "instance", "identifier", instanceId)
 }
 
-def jobTypeRowId(DataSet jobTypes, String className) {
-    if (jobTypes.findAll { it.class_name == className }.firstRow() == null) {
-        jobTypes.add(class_name: className)
-        println "adding job type ${className}"
-    }
-    return jobTypes.findAll { it.class_name == className }.firstRow().id
+def jenkinsVersionRowId(Sql db, String versionString) {
+    return getRowId(db, "jenkins_version", "version_string", versionString)
 }
 
-def jvmRowId(DataSet jvms, String jvmName, String jvmVersion, String jvmVendor) {
-    if (jvms.findAll { it.jvm_name == jvmName && it.jvm_version == jvmVersion && it.jvm_vendor == jvmVendor }.firstRow() == null) {
-        jvms.add(jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor)
-        println "adding jvm ${jvmName}:${jvmVersion}:${jvmVendor}"
-    }
-    return jvms.findAll { it.jvm_name == jvmName && it.jvm_version == jvmVersion && it.jvm_vendor == jvmVendor }.firstRow().id
+def containerRowId(Sql db, String containerString) {
+    return getRowId(db, "servlet_container", "container_name", containerString)
 }
 
-def osRowId(DataSet oses, String osName) {
-    if (oses.findAll { it.os_name == osName }.firstRow() == null) {
-        oses.add(os_name: osName)
-        println "adding os ${osName}"
-    }
-    return oses.findAll { it.os_name == osName }.firstRow().id
+def jobTypeRowId(Sql db, String className) {
+    return getRowId(db, "job_type", "class_name", className)
 }
 
-def pluginRowId(DataSet plugins, String pluginName) {
-    if (plugins.findAll { it.plugin_name == pluginName }.firstRow() == null) {
-        plugins.add(plugin_name: pluginName)
-        println "adding plugin ${pluginName}"
-    }
-    return plugins.findAll { it.plugin_name == pluginName }.firstRow().id
+def jvmRowId(Sql db, String jvmName, String jvmVersion, String jvmVendor) {
+    return getRowId(db, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
 }
 
-def pluginVersionRowId(DataSet pluginVersions, String versionString, int pluginId) {
-    if (pluginVersions.findAll { it.version_string == versionString && it.plugin_id == pluginId }.firstRow() == null) {
-        pluginVersions.add(version_string: versionString, plugin_id: pluginId)
-        println "adding plugin version ${versionString} for ${pluginId}"
-    }
-    return pluginVersions.findAll { it.version_string == versionString && it.plugin_id == pluginId }.firstRow().id
+def osRowId(Sql db, String osName) {
+    return getRowId(db, "os", "os_name", osName)
 }
 
-def addInstanceRecord(DataSet instanceRecords, int instanceId, int containerId, int jenkinsVersionId, String dateString) {
+def pluginRowId(Sql db, String pluginName) {
+    return getRowId(db, "plugin", "plugin_name", pluginName)
+}
+
+def pluginVersionRowId(Sql db, String versionString, int pluginId) {
+    return getRowId(db, "plugin_version", [plugin_id: "${pluginId}", version_string: versionString])
+}
+
+def addInstanceRecord(Sql db, int instanceId, int containerId, int jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss zzz")
-    instanceRecords.add(instance_id: instanceId, container_id: containerId, jenkins_version_id: jenkinsVersionId,
-        when_seen: whenSeen)
-    println "adding instance record for ${instanceId}"
-    return instanceRecords.findAll { it.instance_id == instanceId && it.when_seen == whenSeen }.firstRow().id
+    return getRowId(db, "instance_record", [instance_id: instanceId, container_id: containerId, jenkins_version_id: jenkinsVersionId,
+                                            when_seen: whenSeen])
 }
 
-def addJobRecord(DataSet jobRecords, int instanceRecordId, int jobTypeId, int jobCount) {
-    jobRecords.add(instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount)
+def addJobRecord(Sql db, int instanceRecordId, int jobTypeId, int jobCount) {
+    addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
     println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
-def addNodeRecord(DataSet nodeRecords, int instanceRecordId, int jvmId, int osId, Boolean master, int executors) {
-    nodeRecords.add(instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors)
+def addNodeRecord(Sql db, int instanceRecordId, int jvmId, int osId, Boolean master, int executors) {
+    addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
     println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
-def addPluginRecord(DataSet pluginRecords, int instanceRecordId, int pluginVersionId) {
-    pluginRecords.add(instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId)
+def addPluginRecord(Sql db, int instanceRecordId, int pluginVersionId) {
+    addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
     println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
@@ -279,18 +274,6 @@ def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, i
     Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
     createTablesIfNeeded(db)
 
-    DataSet instances = db.dataSet("instance")
-    DataSet containers = db.dataSet("servlet_container")
-    DataSet jenkinsVersions = db.dataSet("jenkins_version")
-    DataSet jobTypes = db.dataSet("job_type")
-    DataSet jvms = db.dataSet("jvm")
-    DataSet oses = db.dataSet("os")
-    DataSet plugins = db.dataSet("plugin")
-    DataSet pluginVersions = db.dataSet("plugin_version")
-    DataSet instanceRecords = db.dataSet("instance_record")
-    DataSet jobRecords = db.dataSet("job_record")
-    DataSet pluginRecords = db.dataSet("plugin_record")
-    DataSet nodeRecords = db.dataSet("node_record")
 
     def procJson = [:]
 
@@ -320,32 +303,32 @@ def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, i
             def jobCnt = j.jobs.values().inject(0) { acc, val -> acc+ val }
 
             if (jobCnt > 0) {
-                def instRowId = instanceRowId(instances, installId)
-                def verId = jenkinsVersionRowId(jenkinsVersions, ver)
-                def containerId = containerRowId(containers, j.servletContainer)
+                def instRowId = instanceRowId(db, installId)
+                def verId = jenkinsVersionRowId(db, ver)
+                def containerId = containerRowId(db, j.servletContainer)
 
-                def recordId = addInstanceRecord(instanceRecords, instRowId, containerId, verId, j.timestamp)
+                def recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
 
                 j.nodes?.each { n ->
                     Integer jvmId
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                        jvmId = jvmRowId(jvms, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                        jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
                     }
                     def isMaster = n.master ?: false
-                    def osId = osRowId(oses, n.os)
+                    def osId = osRowId(db, n.os)
                     def executors = n.executors
-                    addNodeRecord(nodeRecords, recordId, jvmId, osId, isMaster, executors)
+                    addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
                 }
 
                 j.plugins?.each { p ->
-                    def pluginId = pluginRowId(plugins, p.name)
-                    def pluginVersionId = pluginVersionRowId(pluginVersions, p.version, pluginId)
-                    addPluginRecord(pluginRecords, recordId, pluginVersionId)
+                    def pluginId = pluginRowId(db, p.name)
+                    def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
+                    addPluginRecord(db, recordId, pluginVersionId)
                 }
 
                 j.jobs?.each { type, cnt ->
-                    def jobTypeId = jobTypeRowId(jobTypes, type)
-                    addJobRecord(jobRecords, recordId, jobTypeId, cnt)
+                    def jobTypeId = jobTypeRowId(db, type)
+                    addJobRecord(db, recordId, jobTypeId, cnt)
                 }
             }
             
