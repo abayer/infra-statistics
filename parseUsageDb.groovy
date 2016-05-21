@@ -147,7 +147,7 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 }
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
-    def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss zzz")
+    def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
     return getRowId(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                             when_seen: whenSeen])
 }
@@ -167,6 +167,14 @@ def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
+def failOrNot(Sql db, String query) {
+    try {
+        db.execute(query)
+    } catch (Exception e) {
+        //who cares
+    }
+}
+
 def createTablesIfNeeded(Sql db) {
     db.execute("""CREATE TABLE IF NOT EXISTS instance (
 id SERIAL PRIMARY KEY,
@@ -175,7 +183,7 @@ CONSTRAINT unique_id UNIQUE(identifier)
 );
 """)
 
-    db.execute("CREATE INDEX instance_identifier_idx ON instance (identifier);")
+    failOrNot("CREATE INDEX instance_identifier_idx ON instance (identifier);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS servlet_container (
 id SERIAL PRIMARY KEY,
@@ -184,7 +192,7 @@ CONSTRAINT unique_container UNIQUE(container_name)
 );
 """)
 
-    db.execute("CREATE INDEX container_name_idx ON servlet_container (container_name);")
+    failOrNot("CREATE INDEX container_name_idx ON servlet_container (container_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jenkins_version (
 id SERIAL PRIMARY KEY,
@@ -193,7 +201,7 @@ CONSTRAINT unique_version UNIQUE(version_string)
 );
 """)
 
-    db.execute("CREATE INDEX jenkins_version_idx ON jenkins_version (version_string);")
+    failOrNot("CREATE INDEX jenkins_version_idx ON jenkins_version (version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_type (
 id SERIAL PRIMARY KEY,
@@ -202,7 +210,7 @@ CONSTRAINT unique_type UNIQUE(class_name)
 );
 """)
 
-    db.execute("CREATE INDEX job_type_idx ON job_type (class_name);")
+    failOrNot("CREATE INDEX job_type_idx ON job_type (class_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jvm (
 id SERIAL PRIMARY KEY,
@@ -213,7 +221,7 @@ CONSTRAINT unique_jvm UNIQUE(jvm_name, jvm_version, jvm_vendor)
 );
 """)
 
-    db.execute("CREATE INDEX jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
+    failOrNot("CREATE INDEX jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS os (
 id SERIAL PRIMARY KEY,
@@ -222,7 +230,7 @@ CONSTRAINT unique_os UNIQUE(os_name)
 );
 """)
 
-    db.execute("CREATE INDEX os_idx ON os (os_name);")
+    failOrNot("CREATE INDEX os_idx ON os (os_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin (
 id SERIAL PRIMARY KEY,
@@ -231,7 +239,7 @@ CONSTRAINT unique_plugin UNIQUE(plugin_name)
 );
 """)
 
-    db.execute("CREATE INDEX plugin_idx ON plugin (plugin_name);")
+    failOrNot("CREATE INDEX plugin_idx ON plugin (plugin_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_version (
 id SERIAL PRIMARY KEY,
@@ -241,7 +249,7 @@ CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
 );
 """)
 
-    db.execute("CREATE INDEX plugin_version_idx ON plugin_version (plugin_id, version_string);")
+    failOrNot("CREATE INDEX plugin_version_idx ON plugin_version (plugin_id, version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS instance_record (
 id SERIAL PRIMARY KEY,
