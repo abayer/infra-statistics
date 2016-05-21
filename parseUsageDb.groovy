@@ -324,18 +324,30 @@ def process(Sql db, String timestamp, File logDir) {
                         def isMaster = n.master ?: false
                         def osId = osRowId(db, n.os)
                         def executors = n.executors
-                        addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
+                        try {
+                            addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
+                        } catch (Exception e) {
+                            println "error: ${e}"
+                        }
                     }
 
                     j.plugins?.each { p ->
                         def pluginId = pluginRowId(db, p.name)
                         def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
-                        addPluginRecord(db, recordId, pluginVersionId)
+                        try {
+                            addPluginRecord(db, recordId, pluginVersionId)
+                        } catch (Exception e) {
+                            println "error: ${e}"
+                        }
                     }
 
                     j.jobs?.each { type, cnt ->
                         def jobTypeId = jobTypeRowId(db, type)
-                        addJobRecord(db, recordId, jobTypeId, cnt)
+                        try {
+                            addJobRecord(db, recordId, jobTypeId, cnt)
+                        } catch (Exception e) {
+                            println "error: ${e}"
+                        }
                     }
                 }
 
