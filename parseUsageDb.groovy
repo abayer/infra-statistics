@@ -232,7 +232,7 @@ CONSTRAINT unique_plugin UNIQUE(plugin_name)
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_version (
 id SERIAL PRIMARY KEY,
-plugin_id SERIAL references plugin(id),
+plugin_id integer REFERENCES plugin(id),
 version_string varchar,
 CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
 );
@@ -242,9 +242,9 @@ CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
 
     db.execute("""CREATE TABLE IF NOT EXISTS instance_record (
 id SERIAL PRIMARY KEY,
-instance_id SERIAL REFERENCES instance(id),
-servlet_container_id SERIAL REFERENCES servlet_container(id),
-jenkins_version_id SERIAL REFERENCES jenkins_version(id),
+instance_id integer REFERENCES instance(id),
+servlet_container_id integer REFERENCES servlet_container(id),
+jenkins_version_id integer REFERENCES jenkins_version(id),
 when_seen TIMESTAMP with time zone,
 CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
 );
@@ -252,8 +252,8 @@ CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_record (
 id SERIAL PRIMARY KEY,
-instance_record_id SERIAL references instance_record(id),
-job_type_id SERIAL references job_type(id),
+instance_record_id integer REFERENCES instance_record(id),
+job_type_id integer REFERENCES job_type(id),
 job_count integer,
 CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type_id)
 );
@@ -261,9 +261,9 @@ CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type_id)
 
     db.execute("""CREATE TABLE IF NOT EXISTS node_record (
 id SERIAL PRIMARY KEY,
-instance_record_id SERIAL references instance_record(id),
-jvm_id SERIAL references jvm(id),
-os_id SERIAL references os(id),
+instance_record_id integer REFERENCES instance_record(id),
+jvm_id integer REFERENCES jvm(id),
+os_id integer REFERENCES os(id),
 master boolean,
 executors integer
 );
@@ -271,8 +271,8 @@ executors integer
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_record (
 id SERIAL PRIMARY KEY,
-instance_record_id SERIAL references instance_record(id),
-plugin_version_id SERIAL references plugin_version(id),
+instance_record_id integer REFERENCES instance_record(id),
+plugin_version_id integer REFERENCES plugin_version(id),
 CONSTRAINT unique_plugin_record UNIQUE(instance_record_id, plugin_version_id)
 );
 """)
