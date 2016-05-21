@@ -68,7 +68,7 @@ if (argResult.incremental) {
     process(argResult.timestamp, logDir, outputDir, mongoPort);
 }
 
-def getIDFromQuery(Sql db, GString query) {
+def getIDFromQuery(Sql db, String query) {
     def rows = db.rows(query)
     if (rows != null && !rows.isEmpty()) {
         return rows.first().get("id")
