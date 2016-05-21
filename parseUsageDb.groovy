@@ -70,6 +70,7 @@ if (argResult.incremental) {
 def instanceRowId(DataSet instances, String instanceId) {
     if (instances.findAll { it.identifier == instanceId }.firstRow() == null) {
         instances.add(identifier: instanceId)
+        println "adding instance ${instanceId}"
     }
     return instances.findAll { it.identifier == instanceId }.firstRow().id
 }
@@ -77,6 +78,7 @@ def instanceRowId(DataSet instances, String instanceId) {
 def jenkinsVersionRowId(DataSet jenkinsVersions, String versionString) {
     if (jenkinsVersions.findAll { it.version_string == versionString }.firstRow() == null) {
         jenkinsVersions.add(version_string: versionString)
+        println "adding version ${versionString}"
     }
     return jenkinsVersions.findAll { it.version_string == versionString }.firstRow().id
 }
@@ -84,6 +86,7 @@ def jenkinsVersionRowId(DataSet jenkinsVersions, String versionString) {
 def containerRowId(DataSet containers, String containerString) {
     if (containers.findAll { it.container_name == containerString }.firstRow() == null) {
         containers.add(container_name: containerString)
+        println "adding container ${containerString}"
     }
     return containers.findAll { it.container_name == containerString }.firstRow().id
 }
@@ -91,6 +94,7 @@ def containerRowId(DataSet containers, String containerString) {
 def jobTypeRowId(DataSet jobTypes, String className) {
     if (jobTypes.findAll { it.class_name == className }.firstRow() == null) {
         jobTypes.add(class_name: className)
+        println "adding job type ${className}"
     }
     return jobTypes.findAll { it.class_name == className }.firstRow().id
 }
@@ -98,6 +102,7 @@ def jobTypeRowId(DataSet jobTypes, String className) {
 def jvmRowId(DataSet jvms, String jvmName, String jvmVersion, String jvmVendor) {
     if (jvms.findAll { it.jvm_name == jvmName && it.jvm_version == jvmVersion && it.jvm_vendor == jvmVendor }.firstRow() == null) {
         jvms.add(jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor)
+        println "adding jvm ${jvmName}:${jvmVersion}:${jvmVendor}"
     }
     return jvms.findAll { it.jvm_name == jvmName && it.jvm_version == jvmVersion && it.jvm_vendor == jvmVendor }.firstRow().id
 }
@@ -105,6 +110,7 @@ def jvmRowId(DataSet jvms, String jvmName, String jvmVersion, String jvmVendor) 
 def osRowId(DataSet oses, String osName) {
     if (oses.findAll { it.os_name == osName }.firstRow() == null) {
         oses.add(os_name: osName)
+        println "adding os ${osName}"
     }
     return oses.findAll { it.os_name == osName }.firstRow().id
 }
@@ -112,6 +118,7 @@ def osRowId(DataSet oses, String osName) {
 def pluginRowId(DataSet plugins, String pluginName) {
     if (plugins.findAll { it.plugin_name == pluginName }.firstRow() == null) {
         plugins.add(plugin_name: pluginName)
+        println "adding plugin ${pluginName}"
     }
     return plugins.findAll { it.plugin_name == pluginName }.firstRow().id
 }
@@ -119,6 +126,7 @@ def pluginRowId(DataSet plugins, String pluginName) {
 def pluginVersionRowId(DataSet pluginVersions, String versionString, int pluginId) {
     if (pluginVersions.findAll { it.version_string == versionString && it.plugin_id == pluginId }.firstRow() == null) {
         pluginVersions.add(version_string: versionString, plugin_id: pluginId)
+        println "adding plugin version ${versionString} for ${pluginId}"
     }
     return pluginVersions.findAll { it.version_string == versionString && it.plugin_id == pluginId }.firstRow().id
 }
@@ -127,20 +135,23 @@ def addInstanceRecord(DataSet instanceRecords, int instanceId, int containerId, 
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss zzz")
     instanceRecords.add(instance_id: instanceId, container_id: containerId, jenkins_version_id: jenkinsVersionId,
         when_seen: whenSeen)
-
+    println "adding instance record for ${instanceId}"
     return instanceRecords.findAll { it.instance_id == instanceId && it.when_seen == whenSeen }.firstRow().id
 }
 
 def addJobRecord(DataSet jobRecords, int instanceRecordId, int jobTypeId, int jobCount) {
     jobRecords.add(instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount)
+    println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
 def addNodeRecord(DataSet nodeRecords, int instanceRecordId, int jvmId, int osId, Boolean master, int executors) {
     nodeRecords.add(instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors)
+    println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
 def addPluginRecord(DataSet pluginRecords, int instanceRecordId, int pluginVersionId) {
     pluginRecords.add(instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId)
+    println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
 def createTablesIfNeeded(Sql db) {
