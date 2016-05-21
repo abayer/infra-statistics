@@ -87,7 +87,7 @@ def getSelectValuesString(Map<String,Object> fields) {
         if (it.value == null) {
             return "${it.key} is null"
         } else {
-            return "${it.key} == '${it.value}'"
+            return "${it.key} = '${it.value}'"
         }
     }.join(' AND ')
 }
