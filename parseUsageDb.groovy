@@ -163,7 +163,7 @@ CONSTRAINT unique_id UNIQUE(identifier)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS instance_identifier_idx ON instance (identifier);")
+    db.execute("CREATE INDEX instance_identifier_idx ON instance (identifier);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS servlet_container (
 id SERIAL PRIMARY KEY,
@@ -172,7 +172,7 @@ CONSTRAINT unique_container UNIQUE(container_name)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS container_name_idx ON servlet_container (container_name);")
+    db.execute("CREATE INDEX container_name_idx ON servlet_container (container_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jenkins_version (
 id SERIAL PRIMARY KEY,
@@ -181,7 +181,7 @@ CONSTRAINT unique_version UNIQUE(version_string)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS jenkins_version_idx ON jenkins_version (version_string);")
+    db.execute("CREATE INDEX jenkins_version_idx ON jenkins_version (version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_type (
 id SERIAL PRIMARY KEY,
@@ -190,7 +190,7 @@ CONSTRAINT unique_type UNIQUE(class_name)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS job_type_idx ON job_type (class_name);")
+    db.execute("CREATE INDEX job_type_idx ON job_type (class_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jvm (
 id SERIAL PRIMARY KEY,
@@ -201,7 +201,7 @@ CONSTRAINT unique_jvm UNIQUE(jvm_name, jvm_version, jvm_vendor)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
+    db.execute("CREATE INDEX jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS os (
 id SERIAL PRIMARY KEY,
@@ -210,7 +210,7 @@ CONSTRAINT unique_os UNIQUE(os_name)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS os_idx ON os (os_name);")
+    db.execute("CREATE INDEX os_idx ON os (os_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin (
 id SERIAL PRIMARY KEY,
@@ -219,7 +219,7 @@ CONSTRAINT unique_plugin UNIQUE(plugin_name)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS plugin_idx ON plugin (plugin_name);")
+    db.execute("CREATE INDEX plugin_idx ON plugin (plugin_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_version (
 id SERIAL PRIMARY KEY,
@@ -229,7 +229,7 @@ CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
 );
 """)
 
-    db.execute("CREATE INDEX IF NOT EXISTS plugin_version_idx ON plugin_version (plugin_id, version_string);")
+    db.execute("CREATE INDEX plugin_version_idx ON plugin_version (plugin_id, version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS instance_record (
 id SERIAL PRIMARY KEY,
