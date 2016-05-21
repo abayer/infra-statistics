@@ -148,22 +148,22 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
-    return getRowId(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
+    return addRow(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                             when_seen: whenSeen])
 }
 
 def addJobRecord(Sql db, Integer instanceRecordId, Integer jobTypeId, Integer jobCount) {
-    getRowId(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
+    addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
 def addNodeRecord(Sql db, Integer instanceRecordId, Integer jvmId, Integer osId, Boolean master, Integer executors) {
-    getRowId(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
+    addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
     //println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
 def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
-    getRowId(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
+    addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
@@ -373,7 +373,7 @@ def process(Sql db, String timestamp, File logDir) {
                     try {
                         addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
                     } catch (Exception e) {
-                        println "error: ${e}"
+                        //println "error: ${e}"
                     }
                 }
 
@@ -383,7 +383,7 @@ def process(Sql db, String timestamp, File logDir) {
                     try {
                         addPluginRecord(db, recordId, pluginVersionId)
                     } catch (Exception e) {
-                        println "error: ${e}"
+                        //println "error: ${e}"
                     }
                 }
 
@@ -392,7 +392,7 @@ def process(Sql db, String timestamp, File logDir) {
                     try {
                         addJobRecord(db, recordId, jobTypeId, cnt)
                     } catch (Exception e) {
-                        println "error: ${e}"
+                        //println "error: ${e}"
                     }
                 }
             }
