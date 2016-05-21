@@ -306,7 +306,7 @@ def process(Sql db, String timestamp, File logDir) {
 
     def tmpDir = new File("./tmp")
 
-    if (!tmpDir.isDirectory()) { 
+    if (!tmpDir.isDirectory()) {
         tmpDir.mkdirs()
     }
 
@@ -329,57 +329,69 @@ def process(Sql db, String timestamp, File logDir) {
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
 
                 if (jobCnt > 0) {
-                    def instRowId = instanceRowId(db, installId)
-                    def verId = jenkinsVersionRowId(db, ver)
-                    def containerId = containerRowId(db, j.servletContainer)
-
-                    def recordId
-                    try {
-                        recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
-                    } catch (Exception e) {
-                        println "oh darn ${e}"
+                    if (!instCnt.containsKey(installId)) {
+                        instCnt[installId] = []
                     }
-                    if (recordId != null) {
-                        j.nodes?.each { n ->
-                            Integer jvmId
-                            if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                                jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
-                            }
-                            def isMaster = n.master ?: false
-                            def osId = osRowId(db, n.os)
-                            def executors = n.executors
-                            try {
-                                addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
-                            } catch (Exception e) {
-                                println "error: ${e}"
-                            }
-                        }
-
-                        j.plugins?.each { p ->
-                            def pluginId = pluginRowId(db, p.name)
-                            def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
-                            try {
-                                addPluginRecord(db, recordId, pluginVersionId)
-                            } catch (Exception e) {
-                                println "error: ${e}"
-                            }
-                        }
-
-                        j.jobs?.each { type, cnt ->
-                            def jobTypeId = jobTypeRowId(db, type)
-                            try {
-                                addJobRecord(db, recordId, jobTypeId, cnt)
-                            } catch (Exception e) {
-                                println "error: ${e}"
-                            }
-                        }
-                    }
+                    instCnt[installId] << j
                 }
-
             }
         } else {
             println "Already saw ${origGzFile.name}, skipping"
         }
     }
 
+    def moreThanOne = instCnt.findAll { it.value.size() > 2 }
+    println "Adding ${moreThanOne.size()} records for ${timestamp}"
+
+    moreThanOne.each { j ->
+        def installId = j.install
+        def ver = j.version
+
+
+        def instRowId = instanceRowId(db, installId)
+        def verId = jenkinsVersionRowId(db, ver)
+        def containerId = containerRowId(db, j.servletContainer)
+
+        def recordId
+        try {
+            recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
+        } catch (Exception e) {
+            println "oh darn ${e}"
+        }
+        if (recordId != null) {
+            j.nodes?.each { n ->
+                Integer jvmId
+                if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
+                    jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                }
+                def isMaster = n.master ?: false
+                def osId = osRowId(db, n.os)
+                def executors = n.executors
+                try {
+                    addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
+                } catch (Exception e) {
+                    println "error: ${e}"
+                }
+            }
+
+            j.plugins?.each { p ->
+                def pluginId = pluginRowId(db, p.name)
+                def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
+                try {
+                    addPluginRecord(db, recordId, pluginVersionId)
+                } catch (Exception e) {
+                    println "error: ${e}"
+                }
+            }
+
+            j.jobs?.each { type, cnt ->
+                def jobTypeId = jobTypeRowId(db, type)
+                try {
+                    addJobRecord(db, recordId, jobTypeId, cnt)
+                } catch (Exception e) {
+                    println "error: ${e}"
+                }
+            }
+        }
+    }
 }
