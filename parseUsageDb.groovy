@@ -51,6 +51,7 @@ logDir.eachFileMatch(~re) { f ->
 def data = byMonth.keySet() as List
 println "Found logs: ${data}"
 
+Sql.LOG.level = java.util.logging.Level.SEVERE
 Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
 createTablesIfNeeded(db)
 
