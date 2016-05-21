@@ -80,8 +80,17 @@ def addRow(Sql db, String table, String field, String value) {
     return db.executeInsert("insert into ${table} (${field}) values ('${value}')".toString())[0][0]
 }
 
+def getInsertValuesString(Map<String,Object> fields) {
+    return fields.values().collect {
+        if (it == null) {
+            return "null"
+        } else {
+            return "'${it}'"
+        }
+    }.join(',')
+}
 def addRow(Sql db, String table, Map<String,Object> fields) {
-    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().collect { "'" + it + "'" }.join(',')})".toString())[0][0]
+    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())[0][0]
 }
 
 def getRowId(Sql db, String table, String field, String value) {
