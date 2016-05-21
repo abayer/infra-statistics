@@ -42,30 +42,22 @@ def logDir=new File(argResult.logs)
 def outputDir=new File(argResult.output);
 def mongoPort = argResult.mongoPort ? Integer.valueOf(argResult.mongoPort) : 27017
 
-if (argResult.incremental) {
-    byMonth=[:] as TreeMap
-    re = /.*log\.([0-9]{6})[0-9]+\.gz/ 
-    logDir.eachFileMatch(~re) { f ->
-        m = (f=~re)
-        if (m)  byMonth[m[0][1]] = true;
-    }
-    def data = byMonth.keySet() as List
-    println "Found logs: ${data}"
+byMonth=[:] as TreeMap
+re = /.*log\.([0-9]{6})[0-9]+\.gz/
+logDir.eachFileMatch(~re) { f ->
+    m = (f=~re)
+    if (m)  byMonth[m[0][1]] = true;
+}
+def data = byMonth.keySet() as List
+println "Found logs: ${data}"
 
-    // do not process the current month as the data may not be complete yet
-    data.pop()
-    data.each { t ->
-        if (new File(outputDir,"${t}.json.gz").exists()) {
-            println "Skipping ${t}.json.gz as it already exists"
-        } else {
-            process(t,logDir,outputDir, mongoPort);
-        }
-    }
-} else {
-    // just process one month specified in the command line
-    if (argResult.timestamp==null)
-        throw new Error("Neither --incremental nor --timestamp was specified");
-    process(argResult.timestamp, logDir, outputDir, mongoPort);
+Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
+createTablesIfNeeded(db)
+
+// do not process the current month as the data may not be complete yet
+data.pop()
+data.each { String t ->
+    process(db, t, logDir)
 }
 
 def getIDFromQuery(Sql db, String query) {
@@ -97,7 +89,7 @@ def getRowId(Sql db, String table, String field, String value) {
     def id = getIDFromQuery(db, "select id from ${table} where ${field} = '${value}'")
     if (id == null) {
         id = addRow(db, table, field, value)
-        println "adding ${table} ${value} to id ${id}"
+        //println "adding ${table} ${value} to id ${id}"
     }
     return id
 }
@@ -106,7 +98,7 @@ def getRowId(Sql db, String table, Map<String,Object> fields) {
     def id = getIDFromQuery(db, "select id from ${table} where ${fields.collect { "${it.key} = '${it.value}'" }.join(" AND ") }")
     if (id == null) {
         id = addRow(db, table, fields)
-        println "adding ${table} ${fields} to id ${id}"
+        //println "adding ${table} ${fields} to id ${id}"
     }
     return id
 }
@@ -151,17 +143,17 @@ def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer j
 
 def addJobRecord(Sql db, Integer instanceRecordId, Integer jobTypeId, Integer jobCount) {
     addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
-    println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
+    //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
 def addNodeRecord(Sql db, Integer instanceRecordId, Integer jvmId, Integer osId, Boolean master, Integer executors) {
     addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
-    println "adding node record for instance record ${instanceRecordId} and some node"
+    //println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
 def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
     addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
-    println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
+    //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
 def createTablesIfNeeded(Sql db) {
@@ -277,12 +269,15 @@ CONSTRAINT unique_plugin_record UNIQUE(instance_record_id, plugin_version_id)
 );
 """)
 
+    db.execute("""
+create table if not exists seen_logs (
+filename varchar
+)
+""")
+
 }
 
-def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, int mongoPort) {
-    Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
-    createTablesIfNeeded(db)
-
+def process(Sql db, String timestamp, File logDir) {
 
     def procJson = [:]
 
@@ -302,45 +297,51 @@ def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, i
     def instCnt = [:]
 
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
-        println "Handing original log ${origGzFile.canonicalPath}"
-        new GZIPInputStream(new FileInputStream(origGzFile)).eachLine("UTF-8") { l ->
-            linesSeen++;
-            def j = slurper.parseText(l)
-            def installId = j.install
-            def ver = j.version
+        if (db.rows("select * from seen_logs where filename = ${origGzFile.name}").isEmpty()) {
+            db.execute("insert into seen_logs values (${origGzFile.name})")
 
-            def jobCnt = j.jobs.values().inject(0) { acc, val -> acc+ val }
+            println "Handing original log ${origGzFile.canonicalPath}"
+            new GZIPInputStream(new FileInputStream(origGzFile)).eachLine("UTF-8") { l ->
+                linesSeen++;
+                def j = slurper.parseText(l)
+                def installId = j.install
+                def ver = j.version
 
-            if (jobCnt > 0) {
-                def instRowId = instanceRowId(db, installId)
-                def verId = jenkinsVersionRowId(db, ver)
-                def containerId = containerRowId(db, j.servletContainer)
+                def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
 
-                def recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
+                if (jobCnt > 0) {
+                    def instRowId = instanceRowId(db, installId)
+                    def verId = jenkinsVersionRowId(db, ver)
+                    def containerId = containerRowId(db, j.servletContainer)
 
-                j.nodes?.each { n ->
-                    Integer jvmId
-                    if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                        jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                    def recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
+
+                    j.nodes?.each { n ->
+                        Integer jvmId
+                        if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
+                            jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                        }
+                        def isMaster = n.master ?: false
+                        def osId = osRowId(db, n.os)
+                        def executors = n.executors
+                        addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
                     }
-                    def isMaster = n.master ?: false
-                    def osId = osRowId(db, n.os)
-                    def executors = n.executors
-                    addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
+
+                    j.plugins?.each { p ->
+                        def pluginId = pluginRowId(db, p.name)
+                        def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
+                        addPluginRecord(db, recordId, pluginVersionId)
+                    }
+
+                    j.jobs?.each { type, cnt ->
+                        def jobTypeId = jobTypeRowId(db, type)
+                        addJobRecord(db, recordId, jobTypeId, cnt)
+                    }
                 }
 
-                j.plugins?.each { p ->
-                    def pluginId = pluginRowId(db, p.name)
-                    def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
-                    addPluginRecord(db, recordId, pluginVersionId)
-                }
-
-                j.jobs?.each { type, cnt ->
-                    def jobTypeId = jobTypeRowId(db, type)
-                    addJobRecord(db, recordId, jobTypeId, cnt)
-                }
             }
-            
+        } else {
+            println "Already saw ${origGzFile.name}, skipping"
         }
     }
 
