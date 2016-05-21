@@ -157,7 +157,7 @@ def addPluginRecord(DataSet pluginRecords, int instanceRecordId, int pluginVersi
 
 def createTablesIfNeeded(Sql db) {
     db.execute("""CREATE TABLE IF NOT EXISTS instance (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 identifier varchar(64),
 CONSTRAINT unique_id UNIQUE(identifier)
 );
@@ -166,7 +166,7 @@ CONSTRAINT unique_id UNIQUE(identifier)
     db.execute("CREATE INDEX IF NOT EXISTS instance_identifier_idx ON instance (identifier);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS servlet_container (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 container_name varchar,
 CONSTRAINT unique_container UNIQUE(container_name)
 );
@@ -175,7 +175,7 @@ CONSTRAINT unique_container UNIQUE(container_name)
     db.execute("CREATE INDEX IF NOT EXISTS container_name_idx ON servlet_container (container_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jenkins_version (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 version_string varchar,
 CONSTRAINT unique_version UNIQUE(version_string)
 );
@@ -184,7 +184,7 @@ CONSTRAINT unique_version UNIQUE(version_string)
     db.execute("CREATE INDEX IF NOT EXISTS jenkins_version_idx ON jenkins_version (version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_type (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 class_name varchar,
 CONSTRAINT unique_type UNIQUE(class_name)
 );
@@ -193,7 +193,7 @@ CONSTRAINT unique_type UNIQUE(class_name)
     db.execute("CREATE INDEX IF NOT EXISTS job_type_idx ON job_type (class_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS jvm (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 jvm_name varchar,
 jvm_version varchar,
 jvm_vendor varchar,
@@ -204,7 +204,7 @@ CONSTRAINT unique_jvm UNIQUE(jvm_name, jvm_version, jvm_vendor)
     db.execute("CREATE INDEX IF NOT EXISTS jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS os (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 os_name varchar,
 CONSTRAINT unique_os UNIQUE(os_name)
 );
@@ -213,7 +213,7 @@ CONSTRAINT unique_os UNIQUE(os_name)
     db.execute("CREATE INDEX IF NOT EXISTS os_idx ON os (os_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin (
-id integer PRIMARY KEY DEFAULT SERIAL,
+id SERIAL PRIMARY KEY,
 plugin_name varchar,
 CONSTRAINT unique_plugin UNIQUE(plugin_name)
 );
@@ -222,8 +222,8 @@ CONSTRAINT unique_plugin UNIQUE(plugin_name)
     db.execute("CREATE INDEX IF NOT EXISTS plugin_idx ON plugin (plugin_name);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_version (
-id integer PRIMARY KEY DEFAULT SERIAL,
-plugin_id integer references plugin(id),
+id SERIAL PRIMARY KEY,
+plugin_id SERIAL references plugin(id),
 version_string varchar,
 CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
 );
@@ -232,38 +232,38 @@ CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
     db.execute("CREATE INDEX IF NOT EXISTS plugin_version_idx ON plugin_version (plugin_id, version_string);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS instance_record (
-id integer PRIMARY KEY DEFAULT SERIAL,
-instance_id integer REFERENCES instance(id),
-servlet_container_id integer REFERENCES servlet_container(id),
-jenkins_version_id INTEGER REFERENCES jenkins_version(id),
+id SERIAL PRIMARY KEY,
+instance_id SERIAL REFERENCES instance(id),
+servlet_container_id SERIAL REFERENCES servlet_container(id),
+jenkins_version_id SERIAL REFERENCES jenkins_version(id),
 when_seen TIMESTAMP with time zone,
 CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
 );
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_record (
-id integer PRIMARY KEY DEFAULT SERIAL,
-instance_record_id integer references instance_record(id),
-job_type_id integer references job_type(id),
+id SERIAL PRIMARY KEY,
+instance_record_id SERIAL references instance_record(id),
+job_type_id SERIAL references job_type(id),
 job_count integer,
 CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type_id)
 );
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS node_record (
-id integer PRIMARY KEY DEFAULT SERIAL,
-instance_record_id integer references instance_record(id),
-jvm_id integer references jvm(id),
-os_id integer references os(id),
+id SERIAL PRIMARY KEY,
+instance_record_id SERIAL references instance_record(id),
+jvm_id SERIAL references jvm(id),
+os_id SERIAL references os(id),
 master boolean,
 executors integer
 );
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_record (
-id integer PRIMARY KEY DEFAULT SERIAL,
-instance_record_id integer references instance_record(id),
-plugin_version_id integer references plugin_version(id),
+id SERIAL PRIMARY KEY,
+instance_record_id SERIAL references instance_record(id),
+plugin_version_id SERIAL references plugin_version(id),
 CONSTRAINT unique_plugin_record UNIQUE(instance_record_id, plugin_version_id)
 );
 """)
