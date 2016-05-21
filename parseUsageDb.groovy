@@ -142,17 +142,17 @@ def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer j
 }
 
 def addJobRecord(Sql db, Integer instanceRecordId, Integer jobTypeId, Integer jobCount) {
-    addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
+    getRowId(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
 def addNodeRecord(Sql db, Integer instanceRecordId, Integer jvmId, Integer osId, Boolean master, Integer executors) {
-    addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
+    getRowId(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
     //println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
 def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
-    addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
+    getRowId(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
