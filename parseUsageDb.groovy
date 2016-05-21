@@ -2,7 +2,7 @@
 @Grab(group='com.gmongo', module='gmongo', version='0.9')
 @Grab(group='org.codehaus.jackson', module='jackson-core-asl', version='1.9.3')
 @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.3')
-@Grab(group='org.postgresql', module='postgresql', version='9.4.1208.jre7')
+@Grab(group='org.postgresql', module='postgresql', version='9.3-1104-jdbc4')
 import com.gmongo.GMongo
 import org.codehaus.jackson.*
 import org.codehaus.jackson.map.*
@@ -259,7 +259,7 @@ CONSTRAINT unique_plugin_record UNIQUE(instance_record_id, plugin_version_id)
 }
 
 def process(String timestamp/*such as '201112'*/, File logDir, File outputDir, int mongoPort) {
-    Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "postgres", "admin", "org.postgresql.Driver")
+    Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
     createTablesIfNeeded(db)
 
     DataSet instances = db.dataSet("instance")
