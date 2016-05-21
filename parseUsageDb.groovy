@@ -64,7 +64,7 @@ if (argResult.incremental) {
     // just process one month specified in the command line
     if (argResult.timestamp==null)
         throw new Error("Neither --incremental nor --timestamp was specified");
-    process(argResult.timestamp, logDir, outputDir);
+    process(argResult.timestamp, logDir, outputDir, mongoPort);
 }
 
 def instanceRowId(DataSet instances, String instanceId) {
