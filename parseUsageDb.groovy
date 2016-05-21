@@ -313,7 +313,8 @@ def process(Sql db, String timestamp, File logDir) {
     def logRE = ".*log\\.${timestamp}.*gz"
 
     def linesSeen = 0
-    def instCnt = [:]
+    def instColl = [:]
+    def recCnt = 0
 
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
         if (db.rows("select * from seen_logs where filename = ${origGzFile.name}").isEmpty()) {
@@ -329,10 +330,11 @@ def process(Sql db, String timestamp, File logDir) {
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
 
                 if (jobCnt > 0) {
-                    if (!instCnt.containsKey(installId)) {
-                        instCnt[installId] = []
+                    if (!instColl.containsKey(installId)) {
+                        instColl[installId] = []
                     }
-                    instCnt[installId] << j
+                    instColl[installId] << j
+                    recCnt++
                 }
             }
         } else {
@@ -340,8 +342,8 @@ def process(Sql db, String timestamp, File logDir) {
         }
     }
 
-    def moreThanOne = instCnt.findAll { it.value.size() > 2 }.values()
-    println "Adding ${moreThanOne.size()} records for ${timestamp}"
+    def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
 
     moreThanOne.each { instList ->
         instList.each { j ->
@@ -357,7 +359,7 @@ def process(Sql db, String timestamp, File logDir) {
             try {
                 recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
             } catch (Exception e) {
-                println "oh darn ${e}"
+                //println "oh darn ${e}"
             }
             if (recordId != null) {
                 j.nodes?.each { n ->
