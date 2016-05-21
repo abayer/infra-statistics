@@ -77,15 +77,15 @@ def getIDFromQuery(Sql db, String query) {
 }
 
 def addRow(Sql db, String table, String field, String value) {
-    return db.executeInsert("insert into ${table} (${field}) values (${value})")[0][0]
+    return db.executeInsert("insert into ${table} (${field}) values ('${value}')")[0][0]
 }
 
 def addRow(Sql db, String table, Map<String,Object> fields) {
-    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().join(',')})")[0][0]
+    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().collect { "'" + it + "'" }.join(',')})")[0][0]
 }
 
 def getRowId(Sql db, String table, String field, String value) {
-    def id = getIDFromQuery(db, "select id from ${table} where ${field} = ${value}")
+    def id = getIDFromQuery(db, "select id from ${table} where ${field} = '${value}'")
     if (id == null) {
         id = addRow(db, table, field, value)
         println "adding ${table} ${value} to id ${id}"
@@ -94,7 +94,7 @@ def getRowId(Sql db, String table, String field, String value) {
 }
 
 def getRowId(Sql db, String table, Map<String,Object> fields) {
-    def id = getIDFromQuery(db, "select id from ${table} where ${fields.collect { "${it.key} = ${it.value}" }.join(" AND ") }")
+    def id = getIDFromQuery(db, "select id from ${table} where ${fields.collect { "${it.key} = '${it.value}'" }.join(" AND ") }")
     if (id == null) {
         id = addRow(db, table, fields)
         println "adding ${table} ${fields} to id ${id}"
