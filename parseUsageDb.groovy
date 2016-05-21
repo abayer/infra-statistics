@@ -81,6 +81,17 @@ def getInsertValuesString(Map<String,Object> fields) {
         }
     }.join(',')
 }
+
+def getSelectValuesString(Map<String,Object> fields) {
+    return fields.collect {
+        if (it.value == null) {
+            return "${it.key} is null"
+        } else {
+            return "${it.key} == '${it.value}'"
+        }
+    }.join(' AND ')
+}
+
 def addRow(Sql db, String table, Map<String,Object> fields) {
     return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())[0][0]
 }
@@ -95,7 +106,7 @@ def getRowId(Sql db, String table, String field, String value) {
 }
 
 def getRowId(Sql db, String table, Map<String,Object> fields) {
-    def id = getIDFromQuery(db, "select id from ${table} where ${fields.collect { "${it.key} = '${it.value}'" }.join(" AND ") }")
+    def id = getIDFromQuery(db, "select id from ${table} where ${getSelectValuesString(fields)}")
     if (id == null) {
         id = addRow(db, table, fields)
         //println "adding ${table} ${fields} to id ${id}"
