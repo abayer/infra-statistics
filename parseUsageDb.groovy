@@ -69,9 +69,13 @@ if (argResult.incremental) {
 }
 
 def instanceRowId(Sql db, String instanceId) {
-    def id = db.rows("select id from instance where identifier = ${instanceId}")?.first()?.first()
+    def id
+    def rows = db.rows("select id from instance where identifier = ${instanceId}")
+    if (rows != null && !rows.isEmpty()) {
+        id = rows.first().get("id")
+    }
     if (id == null) {
-        id = db.executeInsert("insert into instance (identifier) values (${instanceId})")
+        id = db.executeInsert("insert into instance (identifier) values (${instanceId})")[0][0]
         println "adding instance ${instanceId} to id ${id}"
     }
     return id
