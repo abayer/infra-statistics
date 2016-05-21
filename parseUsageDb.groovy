@@ -130,27 +130,27 @@ def pluginRowId(Sql db, String pluginName) {
     return getRowId(db, "plugin", "plugin_name", pluginName)
 }
 
-def pluginVersionRowId(Sql db, String versionString, int pluginId) {
+def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
     return getRowId(db, "plugin_version", [plugin_id: "${pluginId}", version_string: versionString])
 }
 
-def addInstanceRecord(Sql db, int instanceId, int containerId, int jenkinsVersionId, String dateString) {
+def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss zzz")
     return getRowId(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                             when_seen: whenSeen])
 }
 
-def addJobRecord(Sql db, int instanceRecordId, int jobTypeId, int jobCount) {
+def addJobRecord(Sql db, Integer instanceRecordId, Integer jobTypeId, Integer jobCount) {
     addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
     println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
-def addNodeRecord(Sql db, int instanceRecordId, int jvmId, int osId, Boolean master, int executors) {
+def addNodeRecord(Sql db, Integer instanceRecordId, Integer jvmId, Integer osId, Boolean master, Integer executors) {
     addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
     println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
-def addPluginRecord(Sql db, int instanceRecordId, int pluginVersionId) {
+def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
     addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
     println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
