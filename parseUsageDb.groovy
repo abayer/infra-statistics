@@ -3,6 +3,7 @@
 @Grab(group='org.codehaus.jackson', module='jackson-core-asl', version='1.9.3')
 @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.3')
 @Grab(group='org.postgresql', module='postgresql', version='9.3-1104-jdbc4')
+@GrabConfig(systemClassLoader=true)
 import com.gmongo.GMongo
 import org.codehaus.jackson.*
 import org.codehaus.jackson.map.*
