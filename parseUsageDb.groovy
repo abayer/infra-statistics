@@ -170,7 +170,8 @@ def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
 
 def failOrNot(Sql db, String query) {
     try {
-        db.execute(query)
+        true
+        //db.execute(query)
     } catch (Exception e) {
         //who cares
     }
