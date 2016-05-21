@@ -136,7 +136,7 @@ def pluginVersionRowId(Sql db, String versionString, int pluginId) {
 
 def addInstanceRecord(Sql db, int instanceId, int containerId, int jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss zzz")
-    return getRowId(db, "instance_record", [instance_id: instanceId, container_id: containerId, jenkins_version_id: jenkinsVersionId,
+    return getRowId(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                             when_seen: whenSeen])
 }
 
