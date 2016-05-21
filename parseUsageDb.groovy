@@ -317,6 +317,14 @@ def process(Sql db, String timestamp, File logDir) {
     def linesSeen = 0
     def instColl = [:]
     def recCnt = 0
+    def instanceIds = [:]
+    def versionIds = [:]
+    def containerIds = [:]
+    def jvmIds = [:]
+    def pluginIds = [:]
+    def pluginVersionIds = [:]
+    def jobTypeIds = [:]
+    def osIds = [:]
 
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
         if (db.rows("select * from seen_logs where filename = ${origGzFile.name}").isEmpty()) {
@@ -352,10 +360,18 @@ def process(Sql db, String timestamp, File logDir) {
             def installId = j.install
             def ver = j.version
 
-
-            def instRowId = instanceRowId(db, installId)
-            def verId = jenkinsVersionRowId(db, ver)
-            def containerId = containerRowId(db, j.servletContainer)
+            if (!instanceIds.containsKey(installId)) {
+                instanceIds[installId] = instanceRowId(db, installId)
+            }
+            def instRowId = instanceIds[installId]
+            if (!versionIds.containsKey(ver)) {
+                versionIds[ver] = jenkinsVersionRowId(db, ver)
+            }
+            def verId = versionIds[ver]
+            if (!containerIds.containsKey(j.servletContainer)) {
+                containerIds[j.servletContainer] = containerRowId(db, j.servletContainer)
+            }
+            def containerId = containerIds[j.servletContainer]
 
             def recordId
             try {
@@ -367,10 +383,16 @@ def process(Sql db, String timestamp, File logDir) {
                 j.nodes?.each { n ->
                     Integer jvmId
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
+                        if (!jvmIds.containsKey("${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}")) {
+                            jvmIds["${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}"] = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                        }
                         jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
                     }
                     def isMaster = n.master ?: false
-                    def osId = osRowId(db, n.os)
+                    if (!osIds.containsKey(n.os)) {
+                        osIds[n.os] = osRowId(db, n.os)
+                    }
+                    def osId = osIds[n.os]
                     def executors = n.executors
                     try {
                         addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
@@ -380,8 +402,14 @@ def process(Sql db, String timestamp, File logDir) {
                 }
 
                 j.plugins?.each { p ->
-                    def pluginId = pluginRowId(db, p.name)
-                    def pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
+                    if (!pluginIds.containsKey(p.name)) {
+                        pluginIds[p.name] = pluginRowId(db, p.name)
+                    }
+                    def pluginId = pluginIds[p.name]
+                    if (!pluginVersionIds.containsKey("${p.version}+${p.pluginId}")) {
+                        pluginVersionIds["${p.version}+${p.pluginId}"] = pluginVersionRowId(db, p.version, pluginId)
+                    }
+                    def pluginVersionId = pluginVersionIds["${p.version}+${p.pluginId}"]
                     try {
                         addPluginRecord(db, recordId, pluginVersionId)
                     } catch (Exception e) {
@@ -390,7 +418,10 @@ def process(Sql db, String timestamp, File logDir) {
                 }
 
                 j.jobs?.each { type, cnt ->
-                    def jobTypeId = jobTypeRowId(db, type)
+                    if (!jobTypeIds.containsKey(type)) {
+                        jobTypeIds[type] = jobTypeRowId(db, type)
+                    }
+                    def jobTypeId = jobTypeIds[type]
                     try {
                         addJobRecord(db, recordId, jobTypeId, cnt)
                     } catch (Exception e) {
