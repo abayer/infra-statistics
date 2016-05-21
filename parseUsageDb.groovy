@@ -68,12 +68,13 @@ if (argResult.incremental) {
     process(argResult.timestamp, logDir, outputDir, mongoPort);
 }
 
-def instanceRowId(DataSet instances, String instanceId) {
-    if (instances.findAll { it.identifier == "${instanceId}" }.firstRow() == null) {
-        instances.add(identifier: "${instanceId}")
-        println "adding instance ${instanceId}"
+def instanceRowId(Sql db, String instanceId) {
+    def id = db.rows("select id from instance where identifier = ${instanceId}")?.first()?.first()
+    if (id == null) {
+        id = db.executeInsert("insert into instance (identifier) values (${instanceId})")
+        println "adding instance ${instanceId} to id ${id}"
     }
-    return instances.findAll { it.identifier == instanceId }.firstRow().id
+    return id
 }
 
 def jenkinsVersionRowId(DataSet jenkinsVersions, String versionString) {
