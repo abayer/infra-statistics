@@ -77,11 +77,11 @@ def getIDFromQuery(Sql db, String query) {
 }
 
 def addRow(Sql db, String table, String field, String value) {
-    return db.executeInsert("insert into ${table} (${field}) values ('${value}')")[0][0]
+    return db.executeInsert("insert into ${table} (${field}) values ('${value}')".toString())[0][0]
 }
 
 def addRow(Sql db, String table, Map<String,Object> fields) {
-    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().collect { "'" + it + "'" }.join(',')})")[0][0]
+    return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${fields.values().collect { "'" + it + "'" }.join(',')})".toString())[0][0]
 }
 
 def getRowId(Sql db, String table, String field, String value) {
