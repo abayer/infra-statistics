@@ -344,6 +344,7 @@ def process(Sql db, String timestamp, File logDir) {
     println "Adding ${moreThanOne.size()} records for ${timestamp}"
 
     moreThanOne.each { j ->
+        println "j: ${j}"
         def installId = j.install
         def ver = j.version
 
