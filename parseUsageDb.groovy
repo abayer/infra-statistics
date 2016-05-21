@@ -340,7 +340,7 @@ def process(Sql db, String timestamp, File logDir) {
         }
     }
 
-    def moreThanOne = instCnt.findAll { it.value.size() > 2 }
+    def moreThanOne = instCnt.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} records for ${timestamp}"
 
     moreThanOne.each { j ->
