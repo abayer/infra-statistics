@@ -256,7 +256,7 @@ def process(Sql db, String timestamp, File logDir) {
             println "Already saw ${origGzFile.name}, skipping"
         }
     }
-
+    println "Filtering for multiple appearences..."
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
     moreThanOne.each { instList ->
