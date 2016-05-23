@@ -93,7 +93,7 @@ def getInsertValuesString(Map<String,Object> fields) {
     return fields.values().collect {
         if (it == null) {
             return "null"
-        } else if (it instanceof String && it.startsWith("select ")) {
+        } else if ((it instanceof GString || it instanceof String) && it.startsWith("select ")) {
             return "(${it})"
         } else {
             return "'${it}'"
