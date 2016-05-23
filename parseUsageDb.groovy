@@ -200,9 +200,6 @@ def addNodeRecord(BatchingStatementWrapper stmt, String identifier, String dateS
 def addPluginRecord(BatchingStatementWrapper stmt, String identifier, String dateString, String pluginName, String pluginVersion) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
-    def existingRow = getIDFromQuery(stmt, "select id from plugin_record where "
-        + "(select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}') "
-        + " and (select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'")
 //    if (existingRow == null) {
     addRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                    plugin_version_id: "select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'"])
