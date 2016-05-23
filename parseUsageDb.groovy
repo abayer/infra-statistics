@@ -64,7 +64,7 @@ def data = byMonth.keySet() as List
 println "Found logs: ${data}"
 
 Sql.LOG.level = java.util.logging.Level.SEVERE
-Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
+Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb?loglevel=2", "stats", "admin", "org.postgresql.Driver")
 
 createTablesIfNeeded(db)
 
@@ -85,7 +85,7 @@ def getIDFromQuery(Sql db, String query) {
 
 def addRow(BatchingStatementWrapper stmt, String table, String field, String value) {
     String query = "insert into ${table} (${field}) values ('${value}')"
-    println "q: ${query}"
+    //println "q: ${query}"
     stmt.addBatch(query)
 }
 
@@ -117,7 +117,7 @@ def getSelectValuesString(Map<String,Object> fields) {
 
 def addRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
     String query = "insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})"
-    println "q: ${query}"
+    //println "q: ${query}"
     stmt.addBatch(query)
 }
 
