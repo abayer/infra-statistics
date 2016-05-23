@@ -172,8 +172,7 @@ CONSTRAINT unique_id UNIQUE(identifier, when_seen)
 id SERIAL PRIMARY KEY,
 install_id integer,
 job_type VARCHAR,
-job_count integer,
-CONSTRAINT unique_job_record UNIQUE(install_id, job_type)
+job_count integer
 );
 """)
 
@@ -193,8 +192,7 @@ executors integer
 id SERIAL PRIMARY KEY,
 install_id integer,
 plugin varchar,
-version varchar,
-CONSTRAINT unique_plugin_record UNIQUE(install_id, plugin, version)
+version varchar
 );
 """)
 
@@ -306,7 +304,7 @@ def process(Sql db, String timestamp, File logDir) {
                 } catch (BatchUpdateException e) {
                     println "first exception : ${e}"
                     throw e.getNextException()
-                } 
+                }
             }
         }
     }
