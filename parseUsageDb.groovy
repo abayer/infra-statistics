@@ -69,6 +69,7 @@ createTablesIfNeeded(db)
 data.pop()
 data.each { String t ->
     trackedIds = process(db, trackedIds, t, logDir)
+    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
 }
 
 def getIDFromQuery(Sql db, String query) {
