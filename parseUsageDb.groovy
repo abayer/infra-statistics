@@ -144,7 +144,7 @@ def pluginRowId(Sql db, String pluginName) {
 }
 
 def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
-    return getRowId(db, "plugin_version", [plugin_id: "${pluginId}", version_string: versionString])
+    return getRowId(db, "plugin_version", [plugin_id: pluginId, version_string: versionString])
 }
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
@@ -398,10 +398,10 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                         trackedIds['pluginIds'][p.name] = pluginRowId(db, p.name)
                     }
                     def pluginId = trackedIds['pluginIds'][p.name]
-                    if (!trackedIds['pluginVersionIds'].containsKey("${p.version}+${pluginId}")) {
-                        trackedIds['pluginVersionIds']["${p.version}+${pluginId}"] = pluginVersionRowId(db, p.version, pluginId)
+                    if (!trackedIds['pluginVersionIds'].containsKey([p.version,pluginId])) {
+                        trackedIds['pluginVersionIds'][[p.version,pluginId]] = pluginVersionRowId(db, p.version, pluginId)
                     }
-                    def pluginVersionId = trackedIds['pluginVersionIds']["${p.version}+${pluginId}"]
+                    def pluginVersionId = trackedIds['pluginVersionIds'][[p.version,pluginId]]
                     try {
                         addPluginRecord(db, recordId, pluginVersionId)
                     } catch (Exception e) {
