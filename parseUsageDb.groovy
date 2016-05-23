@@ -171,7 +171,7 @@ id SERIAL PRIMARY KEY,
 install_id integer,
 job_type VARCHAR,
 job_count integer,
-CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type)
+CONSTRAINT unique_job_record UNIQUE(install_id, job_type)
 );
 """)
 
