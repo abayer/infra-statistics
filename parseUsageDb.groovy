@@ -157,19 +157,18 @@ def failOrNot(Sql db, String query) {
 
 def createTablesIfNeeded(Sql db) {
     db.execute("""CREATE TABLE IF NOT EXISTS install (
-id SERIAL PRIMARY KEY,
+id SERIAL,
 identifier varchar(64),
 container varchar,
 version varchar,
-when_seen timestamp,
-CONSTRAINT unique_id UNIQUE(identifier, when_seen)
+when_seen timestamp
 );
 """)
 
     failOrNot(db, "CREATE INDEX instance_identifier_idx ON instance (identifier);")
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_record (
-id SERIAL PRIMARY KEY,
+id SERIAL,
 install_id integer,
 job_type VARCHAR,
 job_count integer
@@ -177,7 +176,7 @@ job_count integer
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS node_record (
-id SERIAL PRIMARY KEY,
+id SERIAL,
 install_id integer,
 jvm_name varchar,
 jvm_version varchar,
@@ -189,7 +188,7 @@ executors integer
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_record (
-id SERIAL PRIMARY KEY,
+id SERIAL,
 install_id integer,
 plugin varchar,
 version varchar
