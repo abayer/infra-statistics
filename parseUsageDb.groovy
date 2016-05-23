@@ -259,6 +259,7 @@ def process(Sql db, String timestamp, File logDir) {
     println "Filtering for multiple appearences..."
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
+    db.connection.autoCommit = false
     moreThanOne.each { instList ->
         instList.each { j ->
             def installId = j.install
@@ -307,4 +308,6 @@ def process(Sql db, String timestamp, File logDir) {
             }
         }
     }
+    println "Committing..."
+    db.connection.commit()
 }
