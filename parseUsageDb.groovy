@@ -64,7 +64,8 @@ def data = byMonth.keySet() as List
 println "Found logs: ${data}"
 
 Sql.LOG.level = java.util.logging.Level.SEVERE
-Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
+Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb?loglevel=2", "stats", "admin", "org.postgresql.Driver")
+
 createTablesIfNeeded(db)
 
 // do not process the current month as the data may not be complete yet
@@ -83,7 +84,9 @@ def getIDFromQuery(Sql db, String query) {
 }
 
 def addRow(BatchingStatementWrapper stmt, String table, String field, String value) {
-    stmt.addBatch("insert into ${table} (${field}) values ('${value}')".toString())
+    String query = "insert into ${table} (${field}) values ('${value}')"
+    println "q: ${query}"
+    stmt.addBatch(query)
 }
 
 def getInsertValuesString(Map<String,Object> fields) {
@@ -109,7 +112,9 @@ def getSelectValuesString(Map<String,Object> fields) {
 }
 
 def addRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
-    stmt.addBatch("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())
+    String query = "insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})"
+    println "q: ${query}"
+    stmt.addBatch(query)
 }
 
 def getRowId(BatchingStatementWrapper stmt, String table, String field, String value) {
