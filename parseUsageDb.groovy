@@ -352,7 +352,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
         instList.each { j ->
             def installId = j.install
             def ver = j.version
-
+            println "installid ${installId}"
             if (!trackedIds['instanceIds'].containsKey(installId)) {
                 trackedIds['instanceIds'][installId] = instanceRowId(db, installId)
             }
