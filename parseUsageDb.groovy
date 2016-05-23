@@ -90,7 +90,11 @@ def getCopyValuesString(Map<String,Object> fields) {
         if (it == null) {
             return "null"
         } else {
-            return "'${it}'"
+            try {
+                return Integer.valueOf(it)
+            } catch (NumberFormatException e) {
+                return "'${it}'"
+            }
         }
     }.join(';')
 }
