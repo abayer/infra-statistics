@@ -172,7 +172,7 @@ def addJobRecord(BatchingStatementWrapper stmt, String identifier, String dateSt
     addRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                 job_type_id: "select id from job_type where class_name = '${jobType}'",
                                 job_count: jobCount])
-    }
+ 
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
