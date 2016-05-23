@@ -152,7 +152,7 @@ def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer j
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
     def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
-    if (existingRow != null) {
+    if (existingRow == null) {
         return addRow(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                               when_seen: whenSeen])
     } else {
