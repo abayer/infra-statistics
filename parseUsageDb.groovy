@@ -150,6 +150,7 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
+    println "instanceId: ${instanceId} - whenSeen: ${whenSeen}"
     return addRow(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
                                             when_seen: whenSeen])
 }
