@@ -351,7 +351,7 @@ def process(Sql db, String timestamp, File logDir) {
             println "Already saw ${origGzFile.name}, skipping"
         }
     }
-
+    db.connection.autoCommit = false
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
 
@@ -431,4 +431,5 @@ def process(Sql db, String timestamp, File logDir) {
             }
         }
     }
+    db.connection.commit()
 }
