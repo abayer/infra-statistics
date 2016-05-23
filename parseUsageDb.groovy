@@ -85,6 +85,16 @@ def getInsertValuesString(Map<String,Object> fields) {
     }.join(',')
 }
 
+def getCopyValuesString(Map<String,Object> fields) {
+    return fields.values().collect {
+        if (it == null) {
+            return "null"
+        } else {
+            return "'${it}'"
+        }
+    }.join(';')
+}
+
 def getSelectValuesString(Map<String,Object> fields) {
     return fields.collect {
         if (it.value == null) {
@@ -101,6 +111,10 @@ def addRow(Sql db, String table, Map<String,Object> fields) {
 
 def batchRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
     stmt.addBatch("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())
+}
+
+def copyRow(String table, Map<String,Object> fields) {
+    return getCopyValuesString(fields)
 }
 
 def getRowId(Sql db, String table, String field, String value) {
@@ -127,22 +141,22 @@ def instanceRowId(Sql db, String instanceId, String container, String version, S
         when_seen: whenSeen])
 }
 
-def addJobRecord(BatchingStatementWrapper stmt, Integer installId, String jobType, Integer jobCount) {
-    batchRow(stmt, "job_record", [install_id: installId, job_type: jobType, job_count: jobCount])
+def addJobRecord(Integer installId, String jobType, Integer jobCount) {
+    copyRow("job_record", [install_id: installId, job_type: jobType, job_count: jobCount])
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
-def addNodeRecord(BatchingStatementWrapper stmt, Integer installId,
+def addNodeRecord(Integer installId,
                   String jvmName, String jvmVersion, String jvmVendor,
                   String os, Boolean master, Integer executors) {
-    batchRow(stmt, "node_record", [install_id: installId, jvm_version: jvmVersion,
+    copyRow("node_record", [install_id: installId, jvm_version: jvmVersion,
                                    jvm_vendor: jvmVendor, jvm_name: jvmName,
                                    os: os, master: master, executors: executors])
     //println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
-def addPluginRecord(BatchingStatementWrapper stmt, Integer installId, String plugin, String version) {
-    batchRow(stmt, "plugin_record", [install_id: installId, plugin: plugin, version: version])
+def addPluginRecord(Integer installId, String plugin, String version) {
+    copyRow("plugin_record", [install_id: installId, plugin: plugin, version: version])
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
@@ -259,7 +273,10 @@ def process(Sql db, String timestamp, File logDir) {
     println "Filtering for multiple appearences..."
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
-    db.connection.autoCommit = false
+ //   db.connection.autoCommit = false
+    def nodesToCopy = []
+    def pluginsToCopy = []
+    def jobsToCopy = []
     moreThanOne.each { instList ->
         instList.each { j ->
             def installId = j.install
@@ -273,41 +290,39 @@ def process(Sql db, String timestamp, File logDir) {
             }
 
             if (recordId != null) {
-                try {
-                    db.withBatch { stmt ->
-                        j.nodes?.each { n ->
-                            def isMaster = n.master ?: false
-                            try {
-                                addNodeRecord(stmt, recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
-                                    n.os, isMaster, n.executors)
-                            } catch (Exception e) {
-                                //println "error: ${e}"
-                            }
-                        }
+                j.nodes?.each { n ->
+                    def isMaster = n.master ?: false
+                    nodesToCopy << addNodeRecord(recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
+                        n.os, isMaster, n.executors)
+                }
 
-                        j.plugins?.each { p ->
-                            try {
-                                addPluginRecord(stmt, recordId, p.name, p.version)
-                            } catch (Exception e) {
-                                //println "error: ${e}"
-                            }
-                        }
+                j.plugins?.each { p ->
+                    pluginsToCopy << addPluginRecord(recordId, p.name, p.version)
+                }
 
-                        j.jobs?.each { type, cnt ->
-                            try {
-                                addJobRecord(stmt, recordId, type, cnt)
-                            } catch (Exception e) {
-                                //println "error: ${e}"
-                            }
-                        }
-                    }
-                } catch (BatchUpdateException e) {
-                    println "first exception : ${e}"
-                    throw e.getNextException()
+                j.jobs?.each { type, cnt ->
+                    jobsToCopy << addJobRecord(recordId, type, cnt)
                 }
             }
         }
     }
-    println "Committing..."
-    db.connection.commit()
+
+    println "Writing temp files"
+    def nodesTmpFile = File.createTempFile("nodes", timestamp)
+    nodesTmpFile.write(nodesToCopy.join("\n"))
+
+    def jobsTmpFile = File.createTempFile("jobs", timestamp)
+    jobsTmpFile.write(jobsToCopy.join("\n"))
+
+    def pluginsTmpFile = File.createTempFile("plugins", timestamp)
+    pluginsTmpFile.write(pluginsToCopy.join("\n"))
+    println "Batching up"
+    db.withBatch { stmt ->
+        stmt.addBatch("copy node_record(install_id, jvm_name, jvm_version, jvm_vendor, os, master, executors) from '${nodesTmpFile.canonicalPath} delimiter ';' CSV")
+        stmt.addBatch("copy job_record(install_id, job_type, job_count) from '${jobsTmpFile.canonicalPath} delimiter ';' CSV")
+        stmt.addBatch("copy plugin_record(install_id, plugin, version) from '${pluginsTmpFile.canonicalPath} delimiter ';' CSV")
+    }
+
+//    println "Committing..."
+ //   db.connection.commit()
 }
