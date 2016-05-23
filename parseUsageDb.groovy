@@ -89,6 +89,8 @@ def getCopyValuesString(Map<String,Object> fields) {
     return fields.values().collect {
         if (it == null) {
             return "null"
+        } else if (it instanceof Boolean) {
+            return it
         } else {
             try {
                 return Integer.valueOf(it)
