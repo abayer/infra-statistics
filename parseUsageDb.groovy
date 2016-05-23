@@ -279,7 +279,7 @@ def process(Sql db, String timestamp, File logDir) {
     println "Filtering for multiple appearences..."
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
- //   db.connection.autoCommit = false
+    db.connection.autoCommit = false
     def nodesToCopy = []
     def pluginsToCopy = []
     def jobsToCopy = []
@@ -312,6 +312,9 @@ def process(Sql db, String timestamp, File logDir) {
             }
         }
     }
+
+    println "First commit"
+    db.connection.commit()
 
     println "Writing temp files"
     def nodesTmpFile = File.createTempFile("nodes", timestamp)
