@@ -10,6 +10,8 @@ import org.codehaus.jackson.map.*
 
 import groovy.util.CliBuilder
 import groovy.json.*
+
+import java.sql.BatchUpdateException
 import java.util.zip.*;
 import groovy.sql.*
 
@@ -273,33 +275,38 @@ def process(Sql db, String timestamp, File logDir) {
             }
 
             if (recordId != null) {
-                db.withBatch { stmt ->
-                    j.nodes?.each { n ->
-                        def isMaster = n.master ?: false
-                        try {
-                            addNodeRecord(stmt, recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
-                                n.os, isMaster, n.executors)
-                        } catch (Exception e) {
-                            //println "error: ${e}"
+                try {
+                    db.withBatch { stmt ->
+                        j.nodes?.each { n ->
+                            def isMaster = n.master ?: false
+                            try {
+                                addNodeRecord(stmt, recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
+                                    n.os, isMaster, n.executors)
+                            } catch (Exception e) {
+                                //println "error: ${e}"
+                            }
                         }
-                    }
 
-                    j.plugins?.each { p ->
-                        try {
-                            addPluginRecord(stmt, recordId, p.name, p.version)
-                        } catch (Exception e) {
-                            //println "error: ${e}"
+                        j.plugins?.each { p ->
+                            try {
+                                addPluginRecord(stmt, recordId, p.name, p.version)
+                            } catch (Exception e) {
+                                //println "error: ${e}"
+                            }
                         }
-                    }
 
-                    j.jobs?.each { type, cnt ->
-                        try {
-                            addJobRecord(stmt, recordId, type, cnt)
-                        } catch (Exception e) {
-                            //println "error: ${e}"
+                        j.jobs?.each { type, cnt ->
+                            try {
+                                addJobRecord(stmt, recordId, type, cnt)
+                            } catch (Exception e) {
+                                //println "error: ${e}"
+                            }
                         }
                     }
-                }
+                } catch (BatchUpdateException e) {
+                    println "first exception : ${e}"
+                    throw e.getNextException()
+                } 
             }
         }
     }
