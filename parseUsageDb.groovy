@@ -96,7 +96,11 @@ def getInsertValuesString(Map<String,Object> fields) {
         } else if ((it instanceof GString || it instanceof String) && it.startsWith("select ")) {
             return "(${it})"
         } else {
-            return "'${it}'"
+            try {
+                return Integer.valueOf(it)
+            } catch (NumberFormatException e) {
+                return "'${it}'"
+            }
         }
     }.join(',')
 }
