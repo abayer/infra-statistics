@@ -169,7 +169,7 @@ def addInstanceRecord(BatchingStatementWrapper stmt, String identifier, String c
 //    if (existingRow == null) {
     addRow(stmt, "instance_record", [instance_id: "select id from instance where identifier = '${identifier}'",
                                      servlet_container_id: "select id from servlet_container where container_name = '${containerName}'",
-                                     jenkins_version_id: "select id from jenkins_version where version_string = '${jenkinsVersion}",
+                                     jenkins_version_id: "select id from jenkins_version where version_string = '${jenkinsVersion}'",
                                      when_seen: whenSeen])
 /*    } else {
         return existingRow
