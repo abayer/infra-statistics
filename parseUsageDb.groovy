@@ -398,10 +398,10 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                         trackedIds['pluginIds'][p.name] = pluginRowId(db, p.name)
                     }
                     def pluginId = trackedIds['pluginIds'][p.name]
-                    if (!trackedIds['pluginVersionIds'].containsKey("${p.version}+${p.pluginId}")) {
-                        trackedIds['pluginVersionIds']["${p.version}+${p.pluginId}"] = pluginVersionRowId(db, p.version, pluginId)
+                    if (!trackedIds['pluginVersionIds'].containsKey("${p.version}+${pluginId}")) {
+                        trackedIds['pluginVersionIds']["${p.version}+${pluginId}"] = pluginVersionRowId(db, p.version, pluginId)
                     }
-                    def pluginVersionId = trackedIds['pluginVersionIds']["${p.version}+${p.pluginId}"]
+                    def pluginVersionId = trackedIds['pluginVersionIds']["${p.version}+${pluginId}"]
                     try {
                         addPluginRecord(db, recordId, pluginVersionId)
                     } catch (Exception e) {
