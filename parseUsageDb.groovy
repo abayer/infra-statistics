@@ -85,7 +85,7 @@ def getIDFromQuery(Sql db, String query) {
 
 def addRow(BatchingStatementWrapper stmt, String table, String field, String value) {
     String query = "insert into ${table} (${field}) values ('${value}')"
-    //println "q: ${query}"
+    println "q: ${query}"
     stmt.addBatch(query)
 }
 
@@ -117,7 +117,7 @@ def getSelectValuesString(Map<String,Object> fields) {
 
 def addRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
     String query = "insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})"
-   // println "q: ${query}"
+    println "q: ${query}"
     stmt.addBatch(query)
 }
 
