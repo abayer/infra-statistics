@@ -352,7 +352,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
         instList.each { j ->
             def installId = j.install
             def ver = j.version
-            println "installid ${installId}"
+
             if (!trackedIds['instanceIds'].containsKey(installId)) {
                 trackedIds['instanceIds'][installId] = instanceRowId(db, installId)
             }
@@ -370,7 +370,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
             try {
                 recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
             } catch (Exception e) {
-                //println "oh darn ${e}"
+                println "oh darn ${e}"
             }
             if (recordId != null) {
                 j.nodes?.each { n ->
@@ -390,7 +390,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                     try {
                         addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
                     } catch (Exception e) {
-                        //println "error: ${e}"
+                        println "error: ${e}"
                     }
                 }
 
@@ -406,7 +406,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                     try {
                         addPluginRecord(db, recordId, pluginVersionId)
                     } catch (Exception e) {
-                        //println "error: ${e}"
+                        println "error: ${e}"
                     }
                 }
 
@@ -418,7 +418,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                     try {
                         addJobRecord(db, recordId, jobTypeId, cnt)
                     } catch (Exception e) {
-                        //println "error: ${e}"
+                        println "error: ${e}"
                     }
                 }
             }
