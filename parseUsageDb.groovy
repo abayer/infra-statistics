@@ -200,7 +200,9 @@ def addNodeRecord(BatchingStatementWrapper stmt, String identifier, String dateS
 def addPluginRecord(BatchingStatementWrapper stmt, String identifier, String dateString, String pluginName, String pluginVersion) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
-//    def existingRow = getIDFromQuery(db, "select id from plugin_record where instance_record_id = ${instanceRecordId} and plugin_version_id = '${pluginVersionId}'")
+    def existingRow = getIDFromQuery(stmt, "select id from plugin_record where "
+        + "(select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}') "
+        + " and (select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'")
 //    if (existingRow == null) {
     addRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                    plugin_version_id: "select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'"])
@@ -383,6 +385,9 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
             println "Already saw ${origGzFile.name}, skipping"
         }
     }
+    def alreadySeenPlugins = [:]
+    def alreadySeenInstances = [:]
+    def alreadySeenJobs = [:]
     db.connection.autoCommit = false
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
@@ -408,7 +413,10 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                         containerRowId(stmt, j.servletContainer)
                     }
 
-                    addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
+                    if (!alreadySeenInstances.containsKey([installId, j.timestamp])) {
+                        alreadySeenInstances[installId, j.timestamp] = true
+                        addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
+                    }
 
                     j.nodes?.each { n ->
                         if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
@@ -439,8 +447,10 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                                 pluginVersionRowId(stmt, p.version, p.name)
                             }
 
-                            addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
-
+                            if (!alreadySeenPlugins.containsKey([installId, j.timestamp, p.name])) {
+                                alreadySeenPlugins[installId, j.timestamp, p.name] = true
+                                addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
+                            }
                         }
 
                         j.jobs?.each { type, cnt ->
@@ -449,7 +459,10 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                                 jobTypeRowId(stmt, type)
                             }
 
-                            addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                            if (!alreadySeenJobs.containsKey([installId, j.timestamp, type])) {
+                                alreadySeenJobs[installId, j.timestamp, type] = true
+                                addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                            }
                         }
                     }
                 }
