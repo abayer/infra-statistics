@@ -150,7 +150,7 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
-    println "instanceId: ${instanceId} - whenSeen: ${whenSeen}"
+
     def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
     if (existingRow != null) {
         return addRow(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
@@ -373,11 +373,8 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
             def containerId = trackedIds['containerIds'][j.servletContainer]
 
             def recordId
-            try {
-                recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
-            } catch (Exception e) {
-                println "oh darn ${e}"
-            }
+            recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
+
             if (recordId != null) {
                 j.nodes?.each { n ->
                     Integer jvmId
@@ -393,11 +390,9 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                     }
                     def osId = trackedIds['osIds'][n.os]
                     def executors = n.executors
-                    try {
-                        addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
-                    } catch (Exception e) {
-                        println "error: ${e}"
-                    }
+
+                    addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
+
                 }
 
                 j.plugins?.each { p ->
@@ -409,11 +404,8 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                         trackedIds['pluginVersionIds'][[p.version,pluginId]] = pluginVersionRowId(db, p.version, pluginId)
                     }
                     def pluginVersionId = trackedIds['pluginVersionIds'][[p.version,pluginId]]
-                    try {
-                        addPluginRecord(db, recordId, pluginVersionId)
-                    } catch (Exception e) {
-                        println "error: ${e}"
-                    }
+                    addPluginRecord(db, recordId, pluginVersionId)
+
                 }
 
                 j.jobs?.each { type, cnt ->
@@ -421,11 +413,7 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                         trackedIds['jobTypeIds'][type] = jobTypeRowId(db, type)
                     }
                     def jobTypeId = trackedIds['jobTypeIds'][type]
-                    try {
-                        addJobRecord(db, recordId, jobTypeId, cnt)
-                    } catch (Exception e) {
-                        println "error: ${e}"
-                    }
+                    addJobRecord(db, recordId, jobTypeId, cnt)
                 }
             }
         }
