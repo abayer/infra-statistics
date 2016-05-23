@@ -317,10 +317,14 @@ def process(Sql db, String timestamp, File logDir) {
     def pluginsTmpFile = File.createTempFile("plugins", timestamp)
     pluginsTmpFile.write(pluginsToCopy.join("\n"))
     println "Batching up"
-    db.withBatch { stmt ->
-        stmt.addBatch("copy node_record(install_id, jvm_name, jvm_version, jvm_vendor, os, master, executors) from '${nodesTmpFile.canonicalPath}' delimiter ';' CSV")
-        stmt.addBatch("copy job_record(install_id, job_type, job_count) from '${jobsTmpFile.canonicalPath}' delimiter ';' CSV")
-        stmt.addBatch("copy plugin_record(install_id, plugin, version) from '${pluginsTmpFile.canonicalPath}' delimiter ';' CSV")
+    try {
+        db.withBatch { stmt ->
+            stmt.addBatch("copy node_record(install_id, jvm_name, jvm_version, jvm_vendor, os, master, executors) from '${nodesTmpFile.canonicalPath}' delimiter ';' CSV")
+            stmt.addBatch("copy job_record(install_id, job_type, job_count) from '${jobsTmpFile.canonicalPath}' delimiter ';' CSV")
+            stmt.addBatch("copy plugin_record(install_id, plugin, version) from '${pluginsTmpFile.canonicalPath}' delimiter ';' CSV")
+        }
+    } catch (BatchUpdateException e) {
+        throw e.getNextException()
     }
 
 //    println "Committing..."
