@@ -97,6 +97,10 @@ def addRow(Sql db, String table, Map<String,Object> fields) {
     return db.executeInsert("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())[0][0]
 }
 
+def batchRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
+    stmt.addBatch("insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})".toString())
+}
+
 def getRowId(Sql db, String table, String field, String value) {
     def id = getIDFromQuery(db, "select id from ${table} where ${field} = '${value}'")
     if (id == null) {
@@ -115,56 +119,28 @@ def getRowId(Sql db, String table, Map<String,Object> fields) {
     return id
 }
 
-def instanceRowId(Sql db, String instanceId) {
-    return getRowId(db, "instance", "identifier", instanceId)
-}
-
-def jenkinsVersionRowId(Sql db, String versionString) {
-    return getRowId(db, "jenkins_version", "version_string", versionString)
-}
-
-def containerRowId(Sql db, String containerString) {
-    return getRowId(db, "servlet_container", "container_name", containerString)
-}
-
-def jobTypeRowId(Sql db, String className) {
-    return getRowId(db, "job_type", "class_name", className)
-}
-
-def jvmRowId(Sql db, String jvmName, String jvmVersion, String jvmVendor) {
-    return getRowId(db, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
-}
-
-def osRowId(Sql db, String osName) {
-    return getRowId(db, "os", "os_name", osName)
-}
-
-def pluginRowId(Sql db, String pluginName) {
-    return getRowId(db, "plugin", "plugin_name", pluginName)
-}
-
-def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
-    return getRowId(db, "plugin_version", [plugin_id: "${pluginId}", version_string: versionString])
-}
-
-def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer jenkinsVersionId, String dateString) {
+def instanceRowId(Sql db, String instanceId, String container, String version, String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
-    return addRow(db, "instance_record", [instance_id: instanceId, servlet_container_id: containerId, jenkins_version_id: jenkinsVersionId,
-                                            when_seen: whenSeen])
+    return addRow(db, "install", [identifier: instanceId, container: container, version: version,
+        when_seen: whenSeen])
 }
 
-def addJobRecord(Sql db, Integer instanceRecordId, Integer jobTypeId, Integer jobCount) {
-    addRow(db, "job_record", [instance_record_id: instanceRecordId, job_type_id: jobTypeId, job_count: jobCount])
+def addJobRecord(BatchingStatementWrapper stmt, Integer installId, String jobType, Integer jobCount) {
+    batchRow(stmt, "job_record", [install_id: installId, job_type: jobType, job_count: jobCount])
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
-def addNodeRecord(Sql db, Integer instanceRecordId, Integer jvmId, Integer osId, Boolean master, Integer executors) {
-    addRow(db, "node_record", [instance_record_id: instanceRecordId, jvm_id: jvmId, os_id: osId, master: master, executors: executors])
+def addNodeRecord(BatchingStatementWrapper stmt, Integer installId,
+                  String jvmName, String jvmVersion, String jvmVendor,
+                  String os, Boolean master, Integer executors) {
+    batchRow(stmt, "node_record", [install_id: installId, jvm_version: jvmVersion,
+                                   jvm_vendor: jvmVendor, jvm_name: jvmName,
+                                   os: os, master: master, executors: executors])
     //println "adding node record for instance record ${instanceRecordId} and some node"
 }
 
-def addPluginRecord(Sql db, Integer instanceRecordId, Integer pluginVersionId) {
-    addRow(db, "plugin_record", [instance_record_id: instanceRecordId, plugin_version_id: pluginVersionId])
+def addPluginRecord(BatchingStatementWrapper stmt, Integer installId, String plugin, String version) {
+    batchRow(stmt, "plugin_record", [install_id: installId, plugin: plugin, version: version])
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
 
@@ -178,105 +154,34 @@ def failOrNot(Sql db, String query) {
 }
 
 def createTablesIfNeeded(Sql db) {
-    db.execute("""CREATE TABLE IF NOT EXISTS instance (
+    db.execute("""CREATE TABLE IF NOT EXISTS install (
 id SERIAL PRIMARY KEY,
 identifier varchar(64),
-CONSTRAINT unique_id UNIQUE(identifier)
+container varchar,
+version varchar,
+when_seen timestamp,
+CONSTRAINT unique_id UNIQUE(identifier, when_seen)
 );
 """)
 
     failOrNot(db, "CREATE INDEX instance_identifier_idx ON instance (identifier);")
 
-    db.execute("""CREATE TABLE IF NOT EXISTS servlet_container (
-id SERIAL PRIMARY KEY,
-container_name varchar,
-CONSTRAINT unique_container UNIQUE(container_name)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX container_name_idx ON servlet_container (container_name);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS jenkins_version (
-id SERIAL PRIMARY KEY,
-version_string varchar,
-CONSTRAINT unique_version UNIQUE(version_string)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX jenkins_version_idx ON jenkins_version (version_string);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS job_type (
-id SERIAL PRIMARY KEY,
-class_name varchar,
-CONSTRAINT unique_type UNIQUE(class_name)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX job_type_idx ON job_type (class_name);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS jvm (
-id SERIAL PRIMARY KEY,
-jvm_name varchar,
-jvm_version varchar,
-jvm_vendor varchar,
-CONSTRAINT unique_jvm UNIQUE(jvm_name, jvm_version, jvm_vendor)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX jvm_idx ON jvm (jvm_name, jvm_version, jvm_vendor);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS os (
-id SERIAL PRIMARY KEY,
-os_name varchar,
-CONSTRAINT unique_os UNIQUE(os_name)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX os_idx ON os (os_name);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS plugin (
-id SERIAL PRIMARY KEY,
-plugin_name varchar,
-CONSTRAINT unique_plugin UNIQUE(plugin_name)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX plugin_idx ON plugin (plugin_name);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS plugin_version (
-id SERIAL PRIMARY KEY,
-plugin_id integer ,
-version_string varchar,
-CONSTRAINT unique_plugin_version UNIQUE(plugin_id, version_string)
-);
-""")
-
-    failOrNot(db, "CREATE INDEX plugin_version_idx ON plugin_version (plugin_id, version_string);")
-
-    db.execute("""CREATE TABLE IF NOT EXISTS instance_record (
-id SERIAL PRIMARY KEY,
-instance_id integer,
-servlet_container_id integer,
-jenkins_version_id integer,
-when_seen TIMESTAMP,
-CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
-);
-""")
-
     db.execute("""CREATE TABLE IF NOT EXISTS job_record (
 id SERIAL PRIMARY KEY,
-instance_record_id integer,
-job_type_id integer,
+install_id integer,
+job_type VARCHAR,
 job_count integer,
-CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type_id)
+CONSTRAINT unique_job_record UNIQUE(instance_record_id, job_type)
 );
 """)
 
     db.execute("""CREATE TABLE IF NOT EXISTS node_record (
 id SERIAL PRIMARY KEY,
-instance_record_id integer,
-jvm_id integer,
-os_id integer,
+install_id integer,
+jvm_name varchar,
+jvm_version varchar,
+jvm_vendor varchar,
+os varchar,
 master boolean,
 executors integer
 );
@@ -284,9 +189,10 @@ executors integer
 
     db.execute("""CREATE TABLE IF NOT EXISTS plugin_record (
 id SERIAL PRIMARY KEY,
-instance_record_id integer,
-plugin_version_id integer,
-CONSTRAINT unique_plugin_record UNIQUE(instance_record_id, plugin_version_id)
+install_id integer,
+plugin varchar,
+version varchar,
+CONSTRAINT unique_plugin_record UNIQUE(install_id, plugin, version)
 );
 """)
 
@@ -354,78 +260,44 @@ def process(Sql db, String timestamp, File logDir) {
 
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
-
     moreThanOne.each { instList ->
         instList.each { j ->
             def installId = j.install
             def ver = j.version
 
-            if (!instanceIds.containsKey(installId)) {
-                instanceIds[installId] = instanceRowId(db, installId)
-            }
-            def instRowId = instanceIds[installId]
-            if (!versionIds.containsKey(ver)) {
-                versionIds[ver] = jenkinsVersionRowId(db, ver)
-            }
-            def verId = versionIds[ver]
-            if (!containerIds.containsKey(j.servletContainer)) {
-                containerIds[j.servletContainer] = containerRowId(db, j.servletContainer)
-            }
-            def containerId = containerIds[j.servletContainer]
-
             def recordId
             try {
-                recordId = addInstanceRecord(db, instRowId, containerId, verId, j.timestamp)
+                recordId = instanceRowId(db, installId, j.servletContainer, ver, j.timestamp)
             } catch (Exception e) {
-                //println "oh darn ${e}"
+                // do nothing
             }
+
             if (recordId != null) {
-                j.nodes?.each { n ->
-                    Integer jvmId
-                    if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                        if (!jvmIds.containsKey("${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}")) {
-                            jvmIds["${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}"] = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                db.withBatch { stmt ->
+                    j.nodes?.each { n ->
+                        def isMaster = n.master ?: false
+                        try {
+                            addNodeRecord(stmt, recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
+                                n.os, isMaster, n.executors)
+                        } catch (Exception e) {
+                            //println "error: ${e}"
                         }
-                        jvmId = jvmRowId(db, n."jvm-name", n."jvm-version", n."jvm-vendor")
                     }
-                    def isMaster = n.master ?: false
-                    if (!osIds.containsKey(n.os)) {
-                        osIds[n.os] = osRowId(db, n.os)
-                    }
-                    def osId = osIds[n.os]
-                    def executors = n.executors
-                    try {
-                        addNodeRecord(db, recordId, jvmId, osId, isMaster, executors)
-                    } catch (Exception e) {
-                        //println "error: ${e}"
-                    }
-                }
 
-                j.plugins?.each { p ->
-                    if (!pluginIds.containsKey(p.name)) {
-                        pluginIds[p.name] = pluginRowId(db, p.name)
+                    j.plugins?.each { p ->
+                        try {
+                            addPluginRecord(stmt, recordId, p.name, p.version)
+                        } catch (Exception e) {
+                            //println "error: ${e}"
+                        }
                     }
-                    def pluginId = pluginIds[p.name]
-                    if (!pluginVersionIds.containsKey("${p.version}+${p.pluginId}")) {
-                        pluginVersionIds["${p.version}+${p.pluginId}"] = pluginVersionRowId(db, p.version, pluginId)
-                    }
-                    def pluginVersionId = pluginVersionIds["${p.version}+${p.pluginId}"]
-                    try {
-                        addPluginRecord(db, recordId, pluginVersionId)
-                    } catch (Exception e) {
-                        //println "error: ${e}"
-                    }
-                }
 
-                j.jobs?.each { type, cnt ->
-                    if (!jobTypeIds.containsKey(type)) {
-                        jobTypeIds[type] = jobTypeRowId(db, type)
-                    }
-                    def jobTypeId = jobTypeIds[type]
-                    try {
-                        addJobRecord(db, recordId, jobTypeId, cnt)
-                    } catch (Exception e) {
-                        //println "error: ${e}"
+                    j.jobs?.each { type, cnt ->
+                        try {
+                            addJobRecord(stmt, recordId, type, cnt)
+                        } catch (Exception e) {
+                            //println "error: ${e}"
+                        }
                     }
                 }
             }
