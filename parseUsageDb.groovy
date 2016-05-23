@@ -10,6 +10,8 @@ import org.codehaus.jackson.map.*
 
 import groovy.util.CliBuilder
 import groovy.json.*
+
+import java.sql.BatchUpdateException
 import java.util.zip.*;
 import groovy.sql.*
 
@@ -172,7 +174,7 @@ def addJobRecord(BatchingStatementWrapper stmt, String identifier, String dateSt
     addRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                 job_type_id: "select id from job_type where class_name = '${jobType}'",
                                 job_count: jobCount])
- 
+
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
 
@@ -375,74 +377,77 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
     db.connection.autoCommit = false
     def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
+    try {
+        db.withBatch { stmt ->
+            moreThanOne.each { instList ->
+                instList.each { j ->
+                    def installId = j.install
+                    def ver = j.version
 
-    db.withBatch { stmt ->
-        moreThanOne.each { instList ->
-            instList.each { j ->
-                def installId = j.install
-                def ver = j.version
-
-                if (!trackedIds['instanceIds'].containsKey(installId)) {
-                    trackedIds['instanceIds'][installId] = true
-                    instanceRowId(stmt, installId)
-                }
-
-                if (!trackedIds['versionIds'].containsKey(ver)) {
-                    trackedIds['versionIds'][ver] = true
-                    jenkinsVersionRowId(stmt, ver)
-                }
-
-                if (!trackedIds['containerIds'].containsKey(j.servletContainer)) {
-                    trackedIds['containerIds'][j.servletContainer] = true
-                    containerRowId(stmt, j.servletContainer)
-                }
-
-                addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
-
-                j.nodes?.each { n ->
-                    if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                        if (!trackedIds['jvmIds'].containsKey("${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}")) {
-                            trackedIds['jvmIds']["${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}"] = true
-                            jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
-                        }
-                        def isMaster = n.master ?: false
-                        if (!trackedIds['osIds'].containsKey(n.os)) {
-                            trackedIds['osIds'][n.os] = true
-                            osRowId(stmt, n.os)
-                        }
-                        def executors = n.executors
-
-                        addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
-                            n.os, isMaster, executors)
-
+                    if (!trackedIds['instanceIds'].containsKey(installId)) {
+                        trackedIds['instanceIds'][installId] = true
+                        instanceRowId(stmt, installId)
                     }
 
-                    j.plugins?.each { p ->
-                        if (!trackedIds['pluginIds'].containsKey(p.name)) {
-                            trackedIds['pluginIds'][p.name] = true
-                            pluginRowId(stmt, p.name)
-                        }
-
-                        if (!trackedIds['pluginVersionIds'].containsKey([p.version, p.name])) {
-                            trackedIds['pluginVersionIds'][[p.version, p.name]] = true
-                            pluginVersionRowId(stmt, p.version, p.name)
-                        }
-
-                        addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
-
+                    if (!trackedIds['versionIds'].containsKey(ver)) {
+                        trackedIds['versionIds'][ver] = true
+                        jenkinsVersionRowId(stmt, ver)
                     }
 
-                    j.jobs?.each { type, cnt ->
-                        if (!trackedIds['jobTypeIds'].containsKey(type)) {
-                            trackedIds['jobTypeIds'][type] = true
-                            jobTypeRowId(stmt, type)
+                    if (!trackedIds['containerIds'].containsKey(j.servletContainer)) {
+                        trackedIds['containerIds'][j.servletContainer] = true
+                        containerRowId(stmt, j.servletContainer)
+                    }
+
+                    addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
+
+                    j.nodes?.each { n ->
+                        if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
+                            if (!trackedIds['jvmIds'].containsKey("${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}")) {
+                                trackedIds['jvmIds']["${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}"] = true
+                                jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
+                            }
+                            def isMaster = n.master ?: false
+                            if (!trackedIds['osIds'].containsKey(n.os)) {
+                                trackedIds['osIds'][n.os] = true
+                                osRowId(stmt, n.os)
+                            }
+                            def executors = n.executors
+
+                            addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
+                                n.os, isMaster, executors)
+
                         }
 
-                        addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                        j.plugins?.each { p ->
+                            if (!trackedIds['pluginIds'].containsKey(p.name)) {
+                                trackedIds['pluginIds'][p.name] = true
+                                pluginRowId(stmt, p.name)
+                            }
+
+                            if (!trackedIds['pluginVersionIds'].containsKey([p.version, p.name])) {
+                                trackedIds['pluginVersionIds'][[p.version, p.name]] = true
+                                pluginVersionRowId(stmt, p.version, p.name)
+                            }
+
+                            addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
+
+                        }
+
+                        j.jobs?.each { type, cnt ->
+                            if (!trackedIds['jobTypeIds'].containsKey(type)) {
+                                trackedIds['jobTypeIds'][type] = true
+                                jobTypeRowId(stmt, type)
+                            }
+
+                            addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                        }
                     }
                 }
             }
         }
+    } catch (BatchUpdateException e) {
+        throw e.getNextException()
     }
     db.connection.commit()
     return trackedIds
