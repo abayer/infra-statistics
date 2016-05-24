@@ -95,7 +95,7 @@ def getCopyValuesString(Map<String,Object> fields) {
             try {
                 return Integer.valueOf(it)
             } catch (NumberFormatException e) {
-                return "'${it.replaceAll(';',':')}'"
+                return "'${it}'".replaceAll(';',':')}
             }
         }
     }.join(';')
