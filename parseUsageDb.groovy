@@ -283,32 +283,34 @@ def process(Sql db, String timestamp, File logDir) {
     def nodesToCopy = []
     def pluginsToCopy = []
     def jobsToCopy = []
-    moreThanOne.each { instList ->
-        instList.each { j ->
-            def installId = j.install
-            def ver = j.version
+    moreThanOne.each { List instList ->
+        def sortList = instList.sort { a, b -> Date.parse("dd/MMM/yyyy:H:m:s Z", a.timestamp) <=> Date.parse("dd/MMM/yyyy:H:m:s Z", b.timestamp) }
+        println "oldest: ${sortList.first().timestamp}"
+        println "newest: ${sortList.last().timestamp}"
+        def j = sortList.last()
+        def installId = j.install
+        def ver = j.version
 
-            def recordId
-            try {
-                recordId = instanceRowId(db, installId, j.servletContainer, ver, j.timestamp)
-            } catch (Exception e) {
-                // do nothing
+        def recordId
+        try {
+            recordId = instanceRowId(db, installId, j.servletContainer, ver, j.timestamp)
+        } catch (Exception e) {
+            // do nothing
+        }
+
+        if (recordId != null) {
+            j.nodes?.each { n ->
+                def isMaster = n.master ?: false
+                nodesToCopy << addNodeRecord(recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
+                    n.os, isMaster, n.executors)
             }
 
-            if (recordId != null) {
-                j.nodes?.each { n ->
-                    def isMaster = n.master ?: false
-                    nodesToCopy << addNodeRecord(recordId, n.'jvm-name', n.'jvm-version', n.'jvm-vendor',
-                        n.os, isMaster, n.executors)
-                }
+            j.plugins?.each { p ->
+                pluginsToCopy << addPluginRecord(recordId, p.name, p.version)
+            }
 
-                j.plugins?.each { p ->
-                    pluginsToCopy << addPluginRecord(recordId, p.name, p.version)
-                }
-
-                j.jobs?.each { type, cnt ->
-                    jobsToCopy << addJobRecord(recordId, type, cnt)
-                }
+            j.jobs?.each { type, cnt ->
+                jobsToCopy << addJobRecord(recordId, type, cnt)
             }
         }
     }
