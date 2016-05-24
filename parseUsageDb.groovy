@@ -285,8 +285,6 @@ def process(Sql db, String timestamp, File logDir) {
     def jobsToCopy = []
     moreThanOne.each { List instList ->
         def sortList = instList.sort { a, b -> Date.parse("dd/MMM/yyyy:H:m:s Z", a.timestamp) <=> Date.parse("dd/MMM/yyyy:H:m:s Z", b.timestamp) }
-        println "oldest: ${sortList.first().timestamp}"
-        println "newest: ${sortList.last().timestamp}"
         def j = sortList.last()
         def installId = j.install
         def ver = j.version
