@@ -421,14 +421,18 @@ def process(Sql db, String timestamp, File logDir) {
                 }
 
                 j.nodes?.each { n ->
-                    if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
+                    def jvmName = n.containsKey("jvm-name") ? n."jvm-name" : null
+                    def jvmVersion = n.containsKey("jvm-version") ? n."jvm-version" : null
+                    def jvmVendor = n.containsKey("jvm-vendor") ? n."jvm-vendor" : null
+
+                    if (jvmName != null && jvmVersion != null && jvmVendor != null) {
                         jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
                     }
                     def isMaster = n.master ?: false
                     osRowId(stmt, n.os)
                     def executors = n.executors
 
-                    addNodeRecord(stmt, installId, j.timestamp, n."jvm-name" ?: null, n.'jvm-version' ?: null, n.'jvm-vendor' ?: null,
+                    addNodeRecord(stmt, installId, j.timestamp, jvmName, jvmVersion, jvmVendor,
                         n.os, isMaster, executors)
 
                 }
