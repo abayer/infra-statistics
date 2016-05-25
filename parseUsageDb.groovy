@@ -428,7 +428,7 @@ def process(Sql db, String timestamp, File logDir) {
                     osRowId(stmt, n.os)
                     def executors = n.executors
 
-                    addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
+                    addNodeRecord(stmt, installId, j.timestamp, n."jvm-name" ?: null, n.'jvm-version' ?: null, n.'jvm-vendor' ?: null,
                         n.os, isMaster, executors)
 
                 }
