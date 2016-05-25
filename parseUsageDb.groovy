@@ -77,6 +77,7 @@ data.each { String t ->
 
 def getIDFromQuery(Sql db, String table, Map<String,Object> fields) {
     String query = "select id from ${table} where ${getSelectValuesString(fields)}"
+    println "q: ${query}"
     def rows = db.rows(query)
     if (rows != null && !rows.isEmpty()) {
         return rows.first().get("id")
