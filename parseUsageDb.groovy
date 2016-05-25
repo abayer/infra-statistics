@@ -415,11 +415,11 @@ def process(Sql db, String timestamp, File logDir) {
                 jenkinsVersionRowId(stmt, ver)
 
                 containerRowId(stmt, j.servletContainer)
-                try {
+                if (!alreadySeenInstances.containsKey(installId)) {
                     addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
-                } catch (Exception e) {
-                    // whatevs
+                    alreadySeenInstances[installId] = true
                 }
+
                 j.nodes?.each { n ->
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
                         jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
@@ -438,20 +438,18 @@ def process(Sql db, String timestamp, File logDir) {
 
                         pluginVersionRowId(stmt, p.version, p.name)
 
-                        try {
+                        if (!alreadySeenPlugins.containsKey([installId, p.name, p.version])) {
                             addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
-                        } catch (Exception e) {
-                            // whatevs
+                            alreadySeenPlugins[[installId, p.name, p.version]] = true
                         }
                     }
 
                     j.jobs?.each { type, cnt ->
                         jobTypeRowId(stmt, type)
 
-                        try {
+                        if (!alreadySeenJobs.containsKey([installId, type])) {
                             addJobRecord(stmt, installId, j.timestamp, type, cnt)
-                        } catch (Exception e) {
-                            //whatever
+                            alreadySeenJobs[[installId, type]] = true
                         }
                     }
 
