@@ -222,8 +222,8 @@ def addPluginRecord(BatchingStatementWrapper stmt, String identifier, String dat
 
 def failOrNot(Sql db, String query) {
     try {
-        true
-        //db.execute(query)
+        //true
+        db.execute(query)
     } catch (Exception e) {
         //who cares
     }
@@ -314,6 +314,9 @@ when_seen TIMESTAMP,
 CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
 );
 """)
+
+    failOrNot(db, "CREATE INDEX instance_record_idx ON instance_record (instance_id, when_seen);")
+
 
     db.execute("""CREATE TABLE IF NOT EXISTS job_record (
 id SERIAL PRIMARY KEY,
