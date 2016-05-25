@@ -85,10 +85,14 @@ def getIDFromQuery(Sql db, String table, Map<String,Object> fields) {
 }
 
 def addUniqueRow(Sql db, String table, Map<String,Object> fields) {
-    String query = "insert into ${table} (${fields.keySet().join(',')}) select ${getInsertValuesString(fields)} " +
-        "where not exists (select id from ${table} where ${getSelectValuesString(fields)})"
-//    println "q: ${query}"
-    return db.executeInsert(query).get(0)?.get(0)
+    def id = getIDFromQuery(db, table, fields)
+    if (id == null) {
+        String query = "insert into ${table} (${fields.keySet().join(',')}) values (${getInsertValuesString(fields)})"
+        db.execute(query)
+        id = getIDFromQuery(db, table, fields)
+    }
+
+    return id
 }
 
 def addUniqueRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
