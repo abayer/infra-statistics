@@ -131,6 +131,8 @@ def getSelectValuesString(Map<String,Object> fields) {
             return "${it.key} is null"
         } else if ((it.value instanceof GString || it.value instanceof String) && it.value.startsWith("select ")) {
             return "${it.key} = (${it.value})"
+        } else if (it.value instanceof String && it.key.contains("version")) {
+            return "${it.key} = '${it.value}'"
         } else {
             try {
                 return "${it.key} = ${Integer.valueOf(it.value)}"
