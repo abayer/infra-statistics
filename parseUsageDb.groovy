@@ -71,8 +71,8 @@ createTablesIfNeeded(db)
 // do not process the current month as the data may not be complete yet
 data.pop()
 data.each { String t ->
-    trackedIds = process(db, trackedIds, t, logDir)
-    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
+    process(db, t, logDir)
+//    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
 }
 
 def getIDFromQuery(Sql db, String query) {
@@ -81,6 +81,12 @@ def getIDFromQuery(Sql db, String query) {
         return rows.first().get("id")
     }
     return null
+}
+
+def addUniqueRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
+    String query = "insert into ${table} (${fields.keySet().join(',')}) select ${getInsertValuesString(fields)} " +
+        "where not exists (select id from ${table} where ${getSelectValuesString()})"
+    stmt.addBatch(query)
 }
 
 def addRow(BatchingStatementWrapper stmt, String table, String field, String value) {
@@ -109,8 +115,14 @@ def getSelectValuesString(Map<String,Object> fields) {
     return fields.collect {
         if (it.value == null) {
             return "${it.key} is null"
+        } else if ((it.value instanceof GString || it.value instanceof String) && it.value.startsWith("select ")) {
+            return "${it.key} = (${it.value})"
         } else {
-            return "${it.key} = '${it.value}'"
+            try {
+                return "${it.key} = ${Integer.valueOf(it.value)}"
+            } catch (NumberFormatException e) {
+                return "${it.key} = '${it.value}'"
+            }
         }
     }.join(' AND ')
 }
@@ -130,35 +142,35 @@ def getRowId(BatchingStatementWrapper stmt, String table, Map<String,Object> fie
 }
 
 def instanceRowId(BatchingStatementWrapper stmt, String instanceId) {
-    return getRowId(stmt, "instance", "identifier", instanceId)
+    return addUniqueRow(stmt, "instance", [identifier: instanceId])
 }
 
 def jenkinsVersionRowId(BatchingStatementWrapper stmt, String versionString) {
-    return getRowId(stmt, "jenkins_version", "version_string", versionString)
+    return addUniqueRow(stmt, "jenkins_version", [version_string: versionString])
 }
 
 def containerRowId(BatchingStatementWrapper stmt, String containerString) {
-    return getRowId(stmt, "servlet_container", "container_name", containerString)
+    return addUniqueRow(stmt, "servlet_container", [container_name: containerString])
 }
 
 def jobTypeRowId(BatchingStatementWrapper stmt, String className) {
-    return getRowId(stmt, "job_type", "class_name", className)
+    return addUniqueRow(stmt, "job_type", [class_name: className])
 }
 
 def jvmRowId(BatchingStatementWrapper stmt, String jvmName, String jvmVersion, String jvmVendor) {
-    return getRowId(stmt, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
+    return addUniqueRow(stmt, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
 }
 
 def osRowId(BatchingStatementWrapper stmt, String osName) {
-    return getRowId(stmt, "os", "os_name", osName)
+    return addUniqueRow(stmt, "os", [os_name: osName])
 }
 
 def pluginRowId(BatchingStatementWrapper stmt, String pluginName) {
-    return getRowId(stmt, "plugin", "plugin_name", pluginName)
+    return addUniqueRow(stmt, "plugin", [plugin_name: pluginName])
 }
 
 def pluginVersionRowId(BatchingStatementWrapper stmt, String versionString, String pluginName) {
-    return getRowId(stmt, "plugin_version", [plugin_id: "select id from plugin where plugin_name = '${pluginName}'",
+    return addUniqueRow(stmt, "plugin_version", [plugin_id: "select id from plugin where plugin_name = '${pluginName}'",
                                              version_string: versionString])
 }
 
@@ -167,7 +179,7 @@ def addInstanceRecord(BatchingStatementWrapper stmt, String identifier, String c
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
 //    if (existingRow == null) {
-    addRow(stmt, "instance_record", [instance_id: "select id from instance where identifier = '${identifier}'",
+    addUniqueRow(stmt, "instance_record", [instance_id: "select id from instance where identifier = '${identifier}'",
                                      servlet_container_id: "select id from servlet_container where container_name = '${containerName}'",
                                      jenkins_version_id: "select id from jenkins_version where version_string = '${jenkinsVersion}'",
                                      when_seen: whenSeen])
@@ -180,7 +192,7 @@ def addJobRecord(BatchingStatementWrapper stmt, String identifier, String dateSt
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 //    def existingRow = getIDFromQuery(db, "select id from job_record where instance_record_id = ${instanceRecordId} and job_type_id = '${jobTypeId}'")
 //    if (existingRow == null) {
-    addRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
+    addUniqueRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                 job_type_id: "select id from job_type where class_name = '${jobType}'",
                                 job_count: jobCount])
 
@@ -201,7 +213,7 @@ def addPluginRecord(BatchingStatementWrapper stmt, String identifier, String dat
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
 //    if (existingRow == null) {
-    addRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
+    addUniqueRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                    plugin_version_id: "select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'"])
 //    }
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
@@ -337,7 +349,7 @@ filename varchar
 
 }
 
-def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
+def process(Sql db, String timestamp, File logDir) {
 
     def procJson = [:]
 
@@ -396,37 +408,21 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                 def installId = j.install
                 def ver = j.version
 
-                if (!trackedIds['instanceIds'].containsKey(installId)) {
-                    trackedIds['instanceIds'][installId] = true
-                    instanceRowId(stmt, installId)
-                }
+                instanceRowId(stmt, installId)
 
-                if (!trackedIds['versionIds'].containsKey(ver)) {
-                    trackedIds['versionIds'][ver] = true
-                    jenkinsVersionRowId(stmt, ver)
-                }
 
-                if (!trackedIds['containerIds'].containsKey(j.servletContainer)) {
-                    trackedIds['containerIds'][j.servletContainer] = true
-                    containerRowId(stmt, j.servletContainer)
-                }
+                jenkinsVersionRowId(stmt, ver)
 
-                if (!alreadySeenInstances.containsKey([installId, j.timestamp])) {
-                    alreadySeenInstances[installId, j.timestamp] = true
-                    addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
-                }
+                containerRowId(stmt, j.servletContainer)
+
+                addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
 
                 j.nodes?.each { n ->
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
-                        if (!trackedIds['jvmIds'].containsKey("${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}")) {
-                            trackedIds['jvmIds']["${n.'jvm-name'}+${n.'jvm-version'}+${n.'jvm-vendor'}"] = true
-                            jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
-                        }
+                        jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
+
                         def isMaster = n.master ?: false
-                        if (!trackedIds['osIds'].containsKey(n.os)) {
-                            trackedIds['osIds'][n.os] = true
-                            osRowId(stmt, n.os)
-                        }
+                        osRowId(stmt, n.os)
                         def executors = n.executors
 
                         addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
@@ -435,32 +431,17 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
                     }
 
                     j.plugins?.each { p ->
-                        if (!trackedIds['pluginIds'].containsKey(p.name)) {
-                            trackedIds['pluginIds'][p.name] = true
-                            pluginRowId(stmt, p.name)
-                        }
+                        pluginRowId(stmt, p.name)
 
-                        if (!trackedIds['pluginVersionIds'].containsKey([p.version, p.name])) {
-                            trackedIds['pluginVersionIds'][[p.version, p.name]] = true
-                            pluginVersionRowId(stmt, p.version, p.name)
-                        }
+                        pluginVersionRowId(stmt, p.version, p.name)
 
-                        if (!alreadySeenPlugins.containsKey([installId, j.timestamp, p.name])) {
-                            alreadySeenPlugins[installId, j.timestamp, p.name] = true
-                            addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
-                        }
+                        addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
                     }
 
                     j.jobs?.each { type, cnt ->
-                        if (!trackedIds['jobTypeIds'].containsKey(type)) {
-                            trackedIds['jobTypeIds'][type] = true
-                            jobTypeRowId(stmt, type)
-                        }
+                        jobTypeRowId(stmt, type)
 
-                        if (!alreadySeenJobs.containsKey([installId, j.timestamp, type])) {
-                            alreadySeenJobs[installId, j.timestamp, type] = true
-                            addJobRecord(stmt, installId, j.timestamp, type, cnt)
-                        }
+                        addJobRecord(stmt, installId, j.timestamp, type, cnt)
                     }
                 }
             }
@@ -469,5 +450,4 @@ def process(Sql db, Map<String,Map> trackedIds, String timestamp, File logDir) {
         throw e.getNextException()
     }
     db.connection.commit()
-    return trackedIds
 }
