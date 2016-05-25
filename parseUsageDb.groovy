@@ -105,7 +105,7 @@ def getInsertValuesString(Map<String,Object> fields) {
         } else {
             try {
                 return Integer.valueOf(it)
-            } catch (NumberFormatException e) {
+            } catch (Exception e) {
                 return "'${it}'"
             }
         }
