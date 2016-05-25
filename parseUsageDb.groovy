@@ -421,9 +421,9 @@ def process(Sql db, String timestamp, File logDir) {
                 }
 
                 j.nodes?.each { n ->
-                    def jvmName = n.containsKey("jvm-name") ? n."jvm-name" : null
-                    def jvmVersion = n.containsKey("jvm-version") ? n."jvm-version" : null
-                    def jvmVendor = n.containsKey("jvm-vendor") ? n."jvm-vendor" : null
+                    def jvmName = n.containsKey("jvm-name") && !(n."jvm-name" instanceof Boolean) ? n."jvm-name" : null
+                    def jvmVersion = n.containsKey("jvm-version") && !(n."jvm-version" instanceof Boolean) ? n."jvm-version" : null
+                    def jvmVendor = n.containsKey("jvm-vendor") && !(n."jvm-vendor" instanceof Boolean) ? n."jvm-vendor" : null
 
                     if (jvmName != null && jvmVersion != null && jvmVendor != null) {
                         jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
