@@ -26,7 +26,8 @@ def parseArgs(cliArgs) {
 
     cli._(longOpt:'timestamp', args:1, required:false, "Base timestamp for logs - i.e., '201112'")
 
-    cli._(longOpt:'incremental', args:0, required:false, "Parse incrementally based on the available files in --logs and --output")
+    cli._(longOpt:'incremental', args:0, required:false,
+        "Parse incrementally based on the available files in --logs and --output")
 
     cli._(longOpt:'mongoPort', args:1, required:false, "Port for Mongo to use - defaults to 27017")
     
@@ -190,7 +191,8 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
                                              version_string: versionString])
 }
 
-def addInstanceRecord(BatchingStatementWrapper stmt, Integer instanceId, Integer containerId, Integer versionId, String dateString) {
+def addInstanceRecord(BatchingStatementWrapper stmt, Integer instanceId, Integer containerId, Integer versionId,
+                      String dateString) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
@@ -204,13 +206,17 @@ def addInstanceRecord(BatchingStatementWrapper stmt, Integer instanceId, Integer
     }*/
 }
 
-def addJobRecord(BatchingStatementWrapper stmt, Integer instanceId, String dateString, Integer jobTypeId, Integer jobCount) {
+def addJobRecord(BatchingStatementWrapper stmt, Integer instanceId, String dateString, Integer jobTypeId,
+                 Integer jobCount) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 //    def existingRow = getIDFromQuery(db, "select id from job_record where instance_record_id = ${instanceRecordId} and job_type_id = '${jobTypeId}'")
 //    if (existingRow == null) {
-    addRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
-                                job_type_id: jobTypeId,
-                                job_count: jobCount])
+    addRow(stmt, "job_record", [
+        instance_record_id:
+            "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
+        job_type_id: jobTypeId,
+        job_count: jobCount
+    ])
 
     //println "adding job record for instance record ${instanceRecordId} and job type record ${jobTypeId}"
 }
@@ -218,9 +224,12 @@ def addJobRecord(BatchingStatementWrapper stmt, Integer instanceId, String dateS
 def addNodeRecord(BatchingStatementWrapper stmt, Integer instanceId, String dateString,
                   Integer jvmId, Integer osId, Boolean master, Integer executors) {
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
-    def fieldsToAdd = [instance_record_id: "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
-                       os_id: osId,
-                       master: master, executors: executors]
+    def fieldsToAdd = [
+        instance_record_id:
+            "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
+        os_id: osId,
+        master: master, executors: executors
+    ]
 
     if (jvmId != null) {
         fieldsToAdd."jvm_id" = jvmId
@@ -233,8 +242,11 @@ def addPluginRecord(BatchingStatementWrapper stmt, Integer instanceId, String da
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
 //    if (existingRow == null) {
-    addRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
-                                   plugin_version_id: pluginVersionId])
+    addRow(stmt, "plugin_record", [
+        instance_record_id:
+            "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'",
+        plugin_version_id: pluginVersionId
+    ])
 //    }
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
 }
@@ -430,13 +442,16 @@ def process(Sql db, String timestamp, File logDir) {
     def alreadySeenPluginVersions = [:]
 
     db.connection.autoCommit = false
-    def moreThanOne = instColl.findAll { it.value.size() > 2 }.values()
+    def moreThanOne = instColl.findAll { it.value.size() > 2 }.values().collect { instance ->
+        instance.sort { a, b ->
+            Date.parse("dd/MMM/yyyy:H:m:s Z", a.timestamp) <=> Date.parse("dd/MMM/yyyy:H:m:s Z", b.timestamp)
+        }.last()
+    }
+    instColl = [:]
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
     try {
         db.withBatch { stmt ->
-            moreThanOne.each { instList ->
-                def j = instList.sort { a, b -> Date.parse("dd/MMM/yyyy:H:m:s Z", a.timestamp) <=> Date.parse("dd/MMM/yyyy:H:m:s Z", b.timestamp) }.last()
-
+            moreThanOne.each { j ->
                 def installIdStr = j.install
                 def ver = j.version
 
