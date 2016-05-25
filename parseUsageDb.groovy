@@ -180,7 +180,7 @@ def addInstanceRecord(BatchingStatementWrapper stmt, String identifier, String c
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
 //    if (existingRow == null) {
-    addUniqueRow(stmt, "instance_record", [instance_id: "select id from instance where identifier = '${identifier}'",
+    addRow(stmt, "instance_record", [instance_id: "select id from instance where identifier = '${identifier}'",
                                      servlet_container_id: "select id from servlet_container where container_name = '${containerName}'",
                                      jenkins_version_id: "select id from jenkins_version where version_string = '${jenkinsVersion}'",
                                      when_seen: whenSeen])
@@ -193,7 +193,7 @@ def addJobRecord(BatchingStatementWrapper stmt, String identifier, String dateSt
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 //    def existingRow = getIDFromQuery(db, "select id from job_record where instance_record_id = ${instanceRecordId} and job_type_id = '${jobTypeId}'")
 //    if (existingRow == null) {
-    addUniqueRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
+    addRow(stmt, "job_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                 job_type_id: "select id from job_type where class_name = '${jobType}'",
                                 job_count: jobCount])
 
@@ -214,7 +214,7 @@ def addPluginRecord(BatchingStatementWrapper stmt, String identifier, String dat
     def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
 
 //    if (existingRow == null) {
-    addUniqueRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
+    addRow(stmt, "plugin_record", [instance_record_id: "select id from instance_record where instance_id = (select id from instance where identifier = '${identifier}') and when_seen = '${whenSeen}'",
                                    plugin_version_id: "select id from plugin_version where plugin_id = (select id from plugin where plugin_name = '${pluginName}') and version_string = '${pluginVersion}'"])
 //    }
     //println "adding plugin record for instance record ${instanceRecordId} and plugin version ${pluginVersionId}"
@@ -415,9 +415,11 @@ def process(Sql db, String timestamp, File logDir) {
                 jenkinsVersionRowId(stmt, ver)
 
                 containerRowId(stmt, j.servletContainer)
-
-                addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
-
+                try {
+                    addInstanceRecord(stmt, installId, j.servletContainer, ver, j.timestamp)
+                } catch (Exception e) {
+                    // whatevs
+                }
                 j.nodes?.each { n ->
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
                         jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
@@ -436,14 +438,23 @@ def process(Sql db, String timestamp, File logDir) {
 
                         pluginVersionRowId(stmt, p.version, p.name)
 
-                        addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
+                        try {
+                            addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
+                        } catch (Exception e) {
+                            // whatevs
+                        }
                     }
 
                     j.jobs?.each { type, cnt ->
                         jobTypeRowId(stmt, type)
 
-                        addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                        try {
+                            addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                        } catch (Exception e) {
+                            //whatever
+                        }
                     }
+
                 }
             }
         }
