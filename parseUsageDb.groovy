@@ -516,7 +516,7 @@ def process(Sql db, String timestamp, File logDir) {
                     def pluginId
                     def pluginVersionId
                     if (!alreadySeenPluginIds.containsKey(p.name)) {
-                        pluginId = getIDFromQuery(db, "plugin", [plugin_version: p.name])
+                        pluginId = getIDFromQuery(db, "plugin", [plugin_name: p.name])
                         if (pluginId == null) {
                             pluginId  = pluginRowId(db, p.name)
                         }
