@@ -509,7 +509,7 @@ def process(Sql db, String timestamp, File logDir) {
 
                     def executors = n.executors
 
-                    addNodeRecord(stmt, installId, j.timestamp, jvmId, osId, isMaster, executors)
+                    addNodeRecord(stmt, recordId, jvmId, osId, isMaster, executors)
 
                 }
 
@@ -537,7 +537,7 @@ def process(Sql db, String timestamp, File logDir) {
                     }
 
                     if (!alreadySeenPlugins.containsKey([installIdStr, p.name, p.version])) {
-                        addPluginRecord(stmt, installId, j.timestamp, pluginVersionId)
+                        addPluginRecord(stmt, recordId, pluginVersionId)
                         alreadySeenPlugins[[installIdStr, p.name, p.version]] = true
                     }
                 }
@@ -554,7 +554,7 @@ def process(Sql db, String timestamp, File logDir) {
                     }
 
                     if (!alreadySeenJobs.containsKey([installIdStr, jobTypeId])) {
-                        addJobRecord(stmt, installId, j.timestamp, jobTypeId, cnt)
+                        addJobRecord(stmt, recordId, jobTypeId, cnt)
                         alreadySeenJobs[[installIdStr, jobTypeId]] = true
                     }
                 }
