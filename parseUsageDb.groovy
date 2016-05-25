@@ -86,6 +86,7 @@ def getIDFromQuery(Sql db, String query) {
 def addUniqueRow(BatchingStatementWrapper stmt, String table, Map<String,Object> fields) {
     String query = "insert into ${table} (${fields.keySet().join(',')}) select ${getInsertValuesString(fields)} " +
         "where not exists (select id from ${table} where ${getSelectValuesString()})"
+    println "q: ${query}"
     stmt.addBatch(query)
 }
 
