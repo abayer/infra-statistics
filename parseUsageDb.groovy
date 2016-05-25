@@ -423,37 +423,36 @@ def process(Sql db, String timestamp, File logDir) {
                 j.nodes?.each { n ->
                     if (n."jvm-name" != null && n."jvm-version" != null && n."jvm-vendor" != null) {
                         jvmRowId(stmt, n."jvm-name", n."jvm-version", n."jvm-vendor")
-
-                        def isMaster = n.master ?: false
-                        osRowId(stmt, n.os)
-                        def executors = n.executors
-
-                        addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
-                            n.os, isMaster, executors)
-
                     }
+                    def isMaster = n.master ?: false
+                    osRowId(stmt, n.os)
+                    def executors = n.executors
 
-                    j.plugins?.each { p ->
-                        pluginRowId(stmt, p.name)
-
-                        pluginVersionRowId(stmt, p.version, p.name)
-
-                        if (!alreadySeenPlugins.containsKey([installId, p.name, p.version])) {
-                            addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
-                            alreadySeenPlugins[[installId, p.name, p.version]] = true
-                        }
-                    }
-
-                    j.jobs?.each { type, cnt ->
-                        jobTypeRowId(stmt, type)
-
-                        if (!alreadySeenJobs.containsKey([installId, type])) {
-                            addJobRecord(stmt, installId, j.timestamp, type, cnt)
-                            alreadySeenJobs[[installId, type]] = true
-                        }
-                    }
+                    addNodeRecord(stmt, installId, j.timestamp, n."jvm-name", n.'jvm-version', n.'jvm-vendor',
+                        n.os, isMaster, executors)
 
                 }
+
+                j.plugins?.each { p ->
+                    pluginRowId(stmt, p.name)
+
+                    pluginVersionRowId(stmt, p.version, p.name)
+
+                    if (!alreadySeenPlugins.containsKey([installId, p.name, p.version])) {
+                        addPluginRecord(stmt, installId, j.timestamp, p.name, p.version)
+                        alreadySeenPlugins[[installId, p.name, p.version]] = true
+                    }
+                }
+
+                j.jobs?.each { type, cnt ->
+                    jobTypeRowId(stmt, type)
+
+                    if (!alreadySeenJobs.containsKey([installId, type])) {
+                        addJobRecord(stmt, installId, j.timestamp, type, cnt)
+                        alreadySeenJobs[[installId, type]] = true
+                    }
+                }
+
             }
         }
     } catch (BatchUpdateException e) {
