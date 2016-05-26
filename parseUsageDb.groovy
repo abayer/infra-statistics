@@ -192,8 +192,8 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 }
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer versionId,
-                      String dateString) {
-    def whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", dateString).format("yyyy-MM-dd HH:mm:ss")
+                      Date whenSeenDate) {
+    def whenSeen = whenSeenDate.format("yyyy-MM-dd HH:mm:ss")
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
 //    if (existingRow == null) {
@@ -402,12 +402,14 @@ def process(Sql db, String timestamp, File logDir) {
                 def ver = j.version
 
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
-
+                j.whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", j.timestamp)
                 if (jobCnt > 0) {
                     if (!instColl.containsKey(installId)) {
-                        instColl[installId] = []
+                        instColl[installId] = [1, j]
+                    } else if (j.whenSeen > instColl[installId][1].whenSeen) {
+                        def runningCnt = instColl[installId][0] + 1
+                        instColl[installId] = [runningCnt, j]
                     }
-                    instColl[installId] << j
                     recCnt++
                 }
             }
@@ -428,11 +430,8 @@ def process(Sql db, String timestamp, File logDir) {
     def alreadySeenPluginVersions = [:]
 
     db.connection.autoCommit = false
-    def moreThanOne = instColl.findAll { it.value.size() > 2 }.values().collect { instance ->
-        instance.sort { a, b ->
-            Date.parse("dd/MMM/yyyy:H:m:s Z", a.timestamp) <=> Date.parse("dd/MMM/yyyy:H:m:s Z", b.timestamp)
-        }.last()
-    }
+    def moreThanOne = instColl.values().findAll { it[0] > 2 }
+
     instColl = [:]
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
     try {
@@ -475,7 +474,7 @@ def process(Sql db, String timestamp, File logDir) {
                     containerId = alreadySeenContainers[j.servletContainer]
                 }
 
-                def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, j.timestamp)
+                def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, j.whenSeen)
 
                 j.nodes?.each { n ->
                     def jvmName = n.containsKey("jvm-name") && !(n."jvm-name" instanceof Boolean) ? n."jvm-name" : null
@@ -500,7 +499,7 @@ def process(Sql db, String timestamp, File logDir) {
                     if (!alreadySeenOses.containsKey(n.os)) {
                         osId = getIDFromQuery(db, "os", [os_name: n.os])
                         if (osId == null) {
-                            osId  = containerRowId(db, n.os)
+                            osId  = osRowId(db, n.os)
                         }
                         alreadySeenOses[n.os] = osId
                     } else {
