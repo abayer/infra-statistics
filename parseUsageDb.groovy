@@ -75,9 +75,9 @@ createTablesIfNeeded(db)
 
 // do not process the current month as the data may not be complete yet
 data.pop()
-withPool(3) {
+withPool(5) {
     data.eachParallel { String t ->
-        process(db, t, logDir)
+        process(t, logDir)
 //    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
     }
 }
@@ -376,7 +376,9 @@ filename varchar
 
 }
 
-def process(Sql db, String timestamp, File logDir) {
+def process(String timestamp, File logDir) {
+    Sql.LOG.level = java.util.logging.Level.SEVERE
+    Sql db = Sql.newInstance("jdbc:postgresql://localhost:5432/usageDb", "stats", "admin", "org.postgresql.Driver")
 
     def procJson = [:]
 
