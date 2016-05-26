@@ -253,7 +253,7 @@ def failOrNot(Sql db, String query) {
 def createTablesIfNeeded(Sql db) {
     db.execute("""CREATE TABLE IF NOT EXISTS instance (
 id SERIAL PRIMARY KEY,
-identifier varchar(64),
+identifier varchar(128),
 CONSTRAINT unique_id UNIQUE(identifier)
 );
 """)
