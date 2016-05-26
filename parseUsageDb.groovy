@@ -421,6 +421,7 @@ def process(String timestamp, File logDir) {
                     recCnt++
                 } else {
                     if (!noJobs.containsKey(installId)) {
+                        println "${installId}: jobs: ${j.jobs}"
                         noJobs[installId] = true
                     }
                 }
