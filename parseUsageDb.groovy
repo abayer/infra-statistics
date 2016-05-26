@@ -199,7 +199,7 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer versionId,
                       Date whenSeenDate) {
-    def whenSeen = whenSeenDate.format("yyyy-MM-dd HH:mm:ss")
+    def whenSeen = whenSeenDate.format("yyyy-MM-dd HH:mm:ss Z")
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
 //    if (existingRow == null) {
@@ -333,7 +333,7 @@ id SERIAL PRIMARY KEY,
 instance_id integer,
 servlet_container_id integer,
 jenkins_version_id integer,
-when_seen TIMESTAMP,
+when_seen TIMESTAMP with time zone,
 CONSTRAINT unique_instance_record UNIQUE(instance_id, when_seen)
 );
 """)
