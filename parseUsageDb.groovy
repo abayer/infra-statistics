@@ -445,9 +445,9 @@ def process(String timestamp, File logDir) {
     db.connection.autoCommit = false
     def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
-    instColl = [:]
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.size()} no jobs)"
-    println " -- intersect: ${moreThanOne.keySet().intersect(noJobs.findAll { k, v -> v == true }.keySet())}"
+    println " -- 1 appearance - ${instColl.findAll { k, v -> v[0] < 2 }.size()}"
+    instColl = [:]
     try {
         db.withBatch { stmt ->
             moreThanOne.values().collect { it[1] }.each { j ->
