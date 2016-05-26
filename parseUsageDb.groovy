@@ -253,7 +253,7 @@ def failOrNot(Sql db, String query) {
 def createTablesIfNeeded(Sql db) {
     db.execute("""CREATE TABLE IF NOT EXISTS instance (
 id SERIAL PRIMARY KEY,
-identifier varchar(128),
+identifier varchar(64),
 CONSTRAINT unique_id UNIQUE(identifier)
 );
 """)
@@ -462,124 +462,128 @@ def process(String timestamp, File logDir) {
     try {
         db.withBatch { stmt ->
             moreThanOne.values().collect { it[1] }.each { j ->
-                def installIdStr = j.install
+                String installIdStr = j.install
                 def ver = j.version
 
                 def installId
                 def jenkinsVersionId
                 def containerId
 
-                if (!alreadySeenInstalls.containsKey(installIdStr)) {
-                    installId = getIDFromQuery(db, "instance", [identifier: installIdStr])
-                    if (installId == null) {
-                        installId = instanceRowId(db, installIdStr)
-                    }
-                    alreadySeenInstalls[installIdStr] = installId
+                if (installIdStr.length() > 64) {
+                    // DISCARD I DON'T CARE RIGHT NOW
                 } else {
-                    installId = alreadySeenInstalls[installIdStr]
-                }
-
-                if (!alreadySeenVersions.containsKey(ver)) {
-                    jenkinsVersionId = getIDFromQuery(db, "jenkins_version", [version_string: ver])
-                    if (jenkinsVersionId == null) {
-                        jenkinsVersionId  = jenkinsVersionRowId(db, ver)
+                    if (!alreadySeenInstalls.containsKey(installIdStr)) {
+                        installId = getIDFromQuery(db, "instance", [identifier: installIdStr])
+                        if (installId == null) {
+                            installId = instanceRowId(db, installIdStr)
+                        }
+                        alreadySeenInstalls[installIdStr] = installId
+                    } else {
+                        installId = alreadySeenInstalls[installIdStr]
                     }
-                    alreadySeenVersions[ver] = jenkinsVersionId
-                } else {
-                    jenkinsVersionId = alreadySeenVersions[ver]
-                }
 
-                if (!alreadySeenContainers.containsKey(j.servletContainer)) {
-                    containerId = getIDFromQuery(db, "servlet_container", [container_name: j.servletContainer])
-                    if (containerId == null) {
-                        containerId  = containerRowId(db, j.servletContainer)
+                    if (!alreadySeenVersions.containsKey(ver)) {
+                        jenkinsVersionId = getIDFromQuery(db, "jenkins_version", [version_string: ver])
+                        if (jenkinsVersionId == null) {
+                            jenkinsVersionId = jenkinsVersionRowId(db, ver)
+                        }
+                        alreadySeenVersions[ver] = jenkinsVersionId
+                    } else {
+                        jenkinsVersionId = alreadySeenVersions[ver]
                     }
-                    alreadySeenContainers[j.servletContainer] = containerId
-                } else {
-                    containerId = alreadySeenContainers[j.servletContainer]
-                }
 
-                def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, newWhenSeen)
+                    if (!alreadySeenContainers.containsKey(j.servletContainer)) {
+                        containerId = getIDFromQuery(db, "servlet_container", [container_name: j.servletContainer])
+                        if (containerId == null) {
+                            containerId = containerRowId(db, j.servletContainer)
+                        }
+                        alreadySeenContainers[j.servletContainer] = containerId
+                    } else {
+                        containerId = alreadySeenContainers[j.servletContainer]
+                    }
 
-                j.nodes?.each { n ->
-                    def jvmName = n.containsKey("jvm-name") && !(n."jvm-name" instanceof Boolean) ? n."jvm-name" : null
-                    def jvmVersion = n.containsKey("jvm-version") && !(n."jvm-version" instanceof Boolean) ? n."jvm-version" : null
-                    def jvmVendor = n.containsKey("jvm-vendor") && !(n."jvm-vendor" instanceof Boolean) ? n."jvm-vendor" : null
+                    def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, newWhenSeen)
 
-                    def jvmId
-                    def osId
+                    j.nodes?.each { n ->
+                        def jvmName = n.containsKey("jvm-name") && !(n."jvm-name" instanceof Boolean) ? n."jvm-name" : null
+                        def jvmVersion = n.containsKey("jvm-version") && !(n."jvm-version" instanceof Boolean) ? n."jvm-version" : null
+                        def jvmVendor = n.containsKey("jvm-vendor") && !(n."jvm-vendor" instanceof Boolean) ? n."jvm-vendor" : null
 
-                    if (jvmName != null && jvmVersion != null && jvmVendor != null) {
-                        if (!alreadySeenJvms.containsKey([jvmName, jvmVersion, jvmVendor])) {
-                            jvmId = getIDFromQuery(db, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
-                            if (jvmId == null) {
-                                jvmId  = jvmRowId(db, jvmName, jvmVersion, jvmVendor)
+                        def jvmId
+                        def osId
+
+                        if (jvmName != null && jvmVersion != null && jvmVendor != null) {
+                            if (!alreadySeenJvms.containsKey([jvmName, jvmVersion, jvmVendor])) {
+                                jvmId = getIDFromQuery(db, "jvm", [jvm_name: jvmName, jvm_version: jvmVersion, jvm_vendor: jvmVendor])
+                                if (jvmId == null) {
+                                    jvmId = jvmRowId(db, jvmName, jvmVersion, jvmVendor)
+                                }
+                                alreadySeenJvms[[jvmName, jvmVersion, jvmVendor]] = jvmId
+                            } else {
+                                jvmId = alreadySeenJvms[[jvmName, jvmVersion, jvmVendor]]
                             }
-                            alreadySeenJvms[[jvmName, jvmVersion, jvmVendor]] = jvmId
+                        }
+                        def isMaster = n.master ?: false
+                        if (!alreadySeenOses.containsKey(n.os)) {
+                            osId = getIDFromQuery(db, "os", [os_name: n.os])
+                            if (osId == null) {
+                                osId = osRowId(db, n.os)
+                            }
+                            alreadySeenOses[n.os] = osId
                         } else {
-                            jvmId = alreadySeenJvms[[jvmName, jvmVersion, jvmVendor]]
+                            osId = alreadySeenOses[n.os]
+                        }
+
+                        def executors = n.executors
+
+                        addNodeRecord(stmt, recordId, jvmId, osId, isMaster, executors)
+
+                    }
+
+                    j.plugins?.each { p ->
+                        def pluginId
+                        def pluginVersionId
+                        if (!alreadySeenPluginIds.containsKey(p.name)) {
+                            pluginId = getIDFromQuery(db, "plugin", [plugin_name: p.name])
+                            if (pluginId == null) {
+                                pluginId = pluginRowId(db, p.name)
+                            }
+                            alreadySeenPluginIds[p.name] = pluginId
+                        } else {
+                            pluginId = alreadySeenPluginIds[p.name]
+                        }
+
+                        if (!alreadySeenPluginVersions.containsKey([pluginId, p.version])) {
+                            pluginVersionId = getIDFromQuery(db, "plugin_version", [plugin_id: pluginId, version_string: p.version])
+                            if (pluginVersionId == null) {
+                                pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
+                            }
+                            alreadySeenPluginVersions[[pluginId, p.version]] = pluginVersionId
+                        } else {
+                            pluginVersionId = alreadySeenPluginVersions[[pluginId, p.version]]
+                        }
+
+                        if (!alreadySeenPlugins.containsKey([installIdStr, p.name, p.version])) {
+                            addPluginRecord(stmt, recordId, pluginVersionId)
+                            alreadySeenPlugins[[installIdStr, p.name, p.version]] = true
                         }
                     }
-                    def isMaster = n.master ?: false
-                    if (!alreadySeenOses.containsKey(n.os)) {
-                        osId = getIDFromQuery(db, "os", [os_name: n.os])
-                        if (osId == null) {
-                            osId  = osRowId(db, n.os)
+
+                    j.jobs?.each { type, cnt ->
+                        if (!alreadySeenJobTypes.containsKey(type)) {
+                            jobTypeId = getIDFromQuery(db, "job_type", [class_name: type])
+                            if (jobTypeId == null) {
+                                jobTypeId = jobTypeRowId(db, type)
+                            }
+                            alreadySeenJobTypes[type] = jobTypeId
+                        } else {
+                            jobTypeId = alreadySeenJobTypes[type]
                         }
-                        alreadySeenOses[n.os] = osId
-                    } else {
-                        osId = alreadySeenOses[n.os]
-                    }
 
-                    def executors = n.executors
-
-                    addNodeRecord(stmt, recordId, jvmId, osId, isMaster, executors)
-
-                }
-
-                j.plugins?.each { p ->
-                    def pluginId
-                    def pluginVersionId
-                    if (!alreadySeenPluginIds.containsKey(p.name)) {
-                        pluginId = getIDFromQuery(db, "plugin", [plugin_name: p.name])
-                        if (pluginId == null) {
-                            pluginId  = pluginRowId(db, p.name)
+                        if (!alreadySeenJobs.containsKey([installIdStr, jobTypeId])) {
+                            addJobRecord(stmt, recordId, jobTypeId, cnt)
+                            alreadySeenJobs[[installIdStr, jobTypeId]] = true
                         }
-                        alreadySeenPluginIds[p.name] = pluginId
-                    } else {
-                        pluginId = alreadySeenPluginIds[p.name]
-                    }
-
-                    if (!alreadySeenPluginVersions.containsKey([pluginId, p.version])) {
-                        pluginVersionId = getIDFromQuery(db, "plugin_version", [plugin_id: pluginId, version_string: p.version])
-                        if (pluginVersionId == null) {
-                            pluginVersionId = pluginVersionRowId(db, p.version, pluginId)
-                        }
-                        alreadySeenPluginVersions[[pluginId, p.version]] = pluginVersionId
-                    } else {
-                        pluginVersionId = alreadySeenPluginVersions[[pluginId, p.version]]
-                    }
-
-                    if (!alreadySeenPlugins.containsKey([installIdStr, p.name, p.version])) {
-                        addPluginRecord(stmt, recordId, pluginVersionId)
-                        alreadySeenPlugins[[installIdStr, p.name, p.version]] = true
-                    }
-                }
-
-                j.jobs?.each { type, cnt ->
-                    if (!alreadySeenJobTypes.containsKey(type)) {
-                        jobTypeId = getIDFromQuery(db, "job_type", [class_name: type])
-                        if (jobTypeId == null) {
-                            jobTypeId  = jobTypeRowId(db, type)
-                        }
-                        alreadySeenJobTypes[type] = jobTypeId
-                    } else {
-                        jobTypeId = alreadySeenJobTypes[type]
-                    }
-
-                    if (!alreadySeenJobs.containsKey([installIdStr, jobTypeId])) {
-                        addJobRecord(stmt, recordId, jobTypeId, cnt)
-                        alreadySeenJobs[[installIdStr, jobTypeId]] = true
                     }
                 }
 
