@@ -75,7 +75,7 @@ createTablesIfNeeded(db)
 
 // do not process the current month as the data may not be complete yet
 data.pop()
-withPool(5) {
+withPool(3) {
     data.eachParallel { String t ->
         process(db, t, logDir)
 //    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
