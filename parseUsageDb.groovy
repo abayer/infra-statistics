@@ -75,11 +75,9 @@ createTablesIfNeeded(db)
 
 // do not process the current month as the data may not be complete yet
 data.pop()
-withPool(5) {
-    data.eachParallel { String t ->
+data.each { String t ->
         process(t, logDir)
 //    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
-    }
 }
 
 def getIDFromQuery(Sql db, String table, Map<String,Object> fields) {
