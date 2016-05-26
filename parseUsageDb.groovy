@@ -446,11 +446,11 @@ def process(String timestamp, File logDir) {
     def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
     instColl = [:]
-    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.findAll { k, v -> v == true }.size()} no jobs)"
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.size()} no jobs)"
     println " -- intersect: ${moreThanOne.keySet().intersect(noJobs.findAll { k, v -> v == true }.keySet())}"
     try {
         db.withBatch { stmt ->
-            moreThanOne.values().each { j ->
+            moreThanOne.values().collect { it[1] }.each { j ->
                 def installIdStr = j.install
                 def ver = j.version
 
