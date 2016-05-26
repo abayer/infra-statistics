@@ -444,8 +444,16 @@ def process(String timestamp, File logDir) {
     def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
     println "Adding ${moreThanOne.size()} instances (${recCnt} records)"
+    def argh = [:]
     noJobs.sort { a, b -> a.value <=> b.value }.each { k, v ->
-        println " -- ${k}: ${v} jobs"
+        if (!argh.containsKey(v)) {
+            argh[v] = []
+        }
+        argh[v] << k
+    }
+
+    argh.each { k, v ->
+        println " -- ${k}: ${v.size()}"
     }
     instColl = [:]
     try {
