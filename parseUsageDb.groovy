@@ -437,7 +437,9 @@ def process(String timestamp, File logDir) {
     def alreadySeenPluginVersions = [:]
 
     db.connection.autoCommit = false
-    def moreThanOne = instColl.values().findAll { it[0] >= 2 }.collect { it[1] }
+    def moreThanOne = instColl.findAll{ k, v ->
+        v[0] >= 2 
+    }.collect { k, v -> v[1] }
 
     instColl = [:]
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp} at ${newWhenSeen}"
