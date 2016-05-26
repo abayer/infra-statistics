@@ -421,7 +421,7 @@ def process(String timestamp, File logDir) {
                     recCnt++
                 } else {
                     if (!noJobs.containsKey(installId)) {
-                        println "${installId}: jobs: ${j.jobs}"
+//                        println "${installId}: jobs: ${j.jobs}"
                         noJobs[installId] = true
                     }
                 }
@@ -443,15 +443,14 @@ def process(String timestamp, File logDir) {
     def alreadySeenPluginVersions = [:]
 
     db.connection.autoCommit = false
-    def moreThanOne = instColl.findAll{ k, v ->
-        v[0] >= 2
-    }.collect { k, v -> v[1] }
+    def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
     instColl = [:]
     println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.findAll { k, v -> v == true }.size()} no jobs)"
+    println " -- intersect: ${moreThanOne.keySet().intersect(noJobs.findAll { k, v -> v == true }.keySet())}"
     try {
         db.withBatch { stmt ->
-            moreThanOne.each { j ->
+            moreThanOne.values().each { j ->
                 def installIdStr = j.install
                 def ver = j.version
 
