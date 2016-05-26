@@ -198,8 +198,8 @@ def pluginVersionRowId(Sql db, String versionString, Integer pluginId) {
 }
 
 def addInstanceRecord(Sql db, Integer instanceId, Integer containerId, Integer versionId,
-                      Date whenSeenDate) {
-    def whenSeen = whenSeenDate.format("yyyy-MM-dd HH:mm:ss Z")
+                      String whenSeen) {
+//    def whenSeen = whenSeenDate.format("yyyy-MM-dd HH:mm:ss Z")
 
 //    def existingRow = getIDFromQuery(db, "select id from instance_record where instance_id = ${instanceId} and when_seen = '${whenSeen}'")
 //    if (existingRow == null) {
