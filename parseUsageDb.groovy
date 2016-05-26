@@ -445,11 +445,11 @@ def process(String timestamp, File logDir) {
 
     println "Adding ${moreThanOne.size()} instances (${recCnt} records)"
     def argh = [:]
-    noJobs.sort { a, b -> a.value <=> b.value }.each { k, v ->
-        if (!argh.containsKey(v)) {
-            argh[v] = []
+    instColl.each { k, v ->
+        if (!argh.containsKey(v[0])) {
+            argh[v[0]] = []
         }
-        argh[v] << k
+        argh[v[0]] << k
     }
 
     argh.each { k, v ->
