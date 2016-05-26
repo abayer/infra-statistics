@@ -420,6 +420,10 @@ def process(String timestamp, File logDir) {
                     def runningCnt = instColl[installId][0] + 1
                     def runJ = instColl[installId][2] + jobCnt
                     instColl[installId] = [runningCnt, j, runJ]
+                } else {
+                    def runningCnt = instColl[installId][0] + 1
+                    def runJ = instColl[installId][2]
+                    instColl[installId] = [runningCnt, j, runJ]
                 }
                 recCnt++
             }
