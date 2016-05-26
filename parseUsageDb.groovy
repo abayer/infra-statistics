@@ -414,18 +414,18 @@ def process(String timestamp, File logDir) {
                 }
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
                 j.whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", j.timestamp)
-                if (!instColl.containsKey(installId)) {
-                    instColl[installId] = [1, j, jobCnt]
-                } else if (j.whenSeen > instColl[installId][1].whenSeen && jobCnt > 0) {
-                    def runningCnt = instColl[installId][0] + 1
-                    def runJ = instColl[installId][2] + jobCnt
-                    instColl[installId] = [runningCnt, j, runJ]
-                } else {
-                    def runningCnt = instColl[installId][0] + 1
-                    def runJ = instColl[installId][2]
-                    instColl[installId] = [runningCnt, j, runJ]
+                if (jobCnt > 0) {
+                    if (!instColl.containsKey(installId)) {
+                        instColl[installId] = [1, j]
+                    } else if (j.whenSeen > instColl[installId][1].whenSeen) {
+                        def runningCnt = instColl[installId][0] + 1
+                        instColl[installId] = [runningCnt, j]
+                    } else {
+                        def runningCnt = instColl[installId][0] + 1
+                        instColl[installId] = [runningCnt, j]
+                    }
+                    recCnt++
                 }
-                recCnt++
             }
         } else {
             println "Already saw ${origGzFile.name}, skipping"
@@ -444,7 +444,7 @@ def process(String timestamp, File logDir) {
     def alreadySeenPluginVersions = [:]
 
     db.connection.autoCommit = false
-    def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 && v[2] > 0 }
+    def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
     println "Adding ${moreThanOne.size()} instances (${recCnt} records)"
 /*    def argh = [:]
