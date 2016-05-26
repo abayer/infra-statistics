@@ -442,7 +442,7 @@ def process(String timestamp, File logDir) {
     def moreThanOne = instColl.values().findAll { it[0] >= 2 }.collect { it[1] }
 
     instColl = [:]
-    println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp}"
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp} at ${newWhenSeen}"
     try {
         db.withBatch { stmt ->
             moreThanOne.each { j ->
