@@ -435,7 +435,7 @@ def process(Sql db, String timestamp, File logDir) {
     def alreadySeenJobTypes = [:]
     def alreadySeenPluginVersions = [:]
 
-    db.connection.autoCommit = false
+//    db.connection.autoCommit = false
     def moreThanOne = instColl.values().findAll { it[0] >= 2 }.collect { it[1] }
 
     instColl = [:]
@@ -569,5 +569,5 @@ def process(Sql db, String timestamp, File logDir) {
     } catch (BatchUpdateException e) {
         throw e.getNextException()
     }
-    db.connection.commit()
+//    db.connection.commit()
 }
