@@ -395,7 +395,7 @@ def process(String timestamp, File logDir) {
     def linesSeen = 0
     def instColl = [:]
     def recCnt = 0
-    def noJobsCnt = 0
+    def noJobs = [:]
 
     def newWhenSeen = Date.parse("yyyyMM", timestamp).format("yyyy-MM-dd HH:mm:ss Z", TimeZone.getTimeZone("GMT"))
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
@@ -411,6 +411,7 @@ def process(String timestamp, File logDir) {
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
                 j.whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", j.timestamp)
                 if (jobCnt > 0) {
+                    noJobs[installId] = false
                     if (!instColl.containsKey(installId)) {
                         instColl[installId] = [1, j]
                     } else if (j.whenSeen > instColl[installId][1].whenSeen) {
@@ -419,7 +420,9 @@ def process(String timestamp, File logDir) {
                     }
                     recCnt++
                 } else {
-                    noJobsCnt++
+                    if (!noJobs.containsKey(installId)) {
+                        noJobs[installId] = true
+                    }
                 }
             }
         } else {
@@ -444,7 +447,7 @@ def process(String timestamp, File logDir) {
     }.collect { k, v -> v[1] }
 
     instColl = [:]
-    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobsCnt} no jobs)"
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.findAll { k, v -> v == true }.size()} no jobs)"
     try {
         db.withBatch { stmt ->
             moreThanOne.each { j ->
