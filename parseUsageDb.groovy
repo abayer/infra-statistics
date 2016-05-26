@@ -3,10 +3,14 @@
 @Grab(group='org.codehaus.jackson', module='jackson-core-asl', version='1.9.3')
 @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.3')
 @Grab(group='org.postgresql', module='postgresql', version='9.3-1104-jdbc4')
+@Grab(group='org.postgresql', module='postgresql', version='9.3-1104-jdbc4')
+@Grab(group='org.codehaus.gpars', module='gpars', version='1.2.1')
+
 @GrabConfig(systemClassLoader=true)
 import com.gmongo.GMongo
 import org.codehaus.jackson.*
 import org.codehaus.jackson.map.*
+import static groovyx.gpars.GParsPool.withPool
 
 import groovy.util.CliBuilder
 import groovy.json.*
@@ -71,9 +75,11 @@ createTablesIfNeeded(db)
 
 // do not process the current month as the data may not be complete yet
 data.pop()
-data.each { String t ->
-    process(db, t, logDir)
+withPool(5) {
+    data.eachParallel { String t ->
+        process(db, t, logDir)
 //    println "trackedIds.instanceIds size : ${trackedIds['instanceIds'].size()}"
+    }
 }
 
 def getIDFromQuery(Sql db, String table, Map<String,Object> fields) {
