@@ -422,7 +422,7 @@ def process(String timestamp, File logDir) {
                         instColl[installId] = [runningCnt, j]
                     } else {
                         def runningCnt = instColl[installId][0] + 1
-                        instColl[installId] = [runningCnt, j]
+                        instColl[installId] = [runningCnt, instColl[installId][1]]
                     }
                     recCnt++
                 }
