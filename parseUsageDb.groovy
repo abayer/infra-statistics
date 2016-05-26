@@ -395,12 +395,12 @@ def process(String timestamp, File logDir) {
     def linesSeen = 0
     def instColl = [:]
     def recCnt = 0
+    def noJobsCnt = 0
 
     def newWhenSeen = Date.parse("yyyyMM", timestamp).format("yyyy-MM-dd HH:mm:ss Z", TimeZone.getTimeZone("GMT"))
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
         if (db.rows("select * from seen_logs where filename = ${origGzFile.name}").isEmpty()) {
             db.execute("insert into seen_logs values (${origGzFile.name})")
-
             println "Handing original log ${origGzFile.canonicalPath}"
             new GZIPInputStream(new FileInputStream(origGzFile)).eachLine("UTF-8") { l ->
                 linesSeen++;
@@ -418,6 +418,8 @@ def process(String timestamp, File logDir) {
                         instColl[installId] = [runningCnt, j]
                     }
                     recCnt++
+                } else {
+                    noJobsCnt++
                 }
             }
         } else {
@@ -438,11 +440,11 @@ def process(String timestamp, File logDir) {
 
     db.connection.autoCommit = false
     def moreThanOne = instColl.findAll{ k, v ->
-        v[0] >= 2 
+        v[0] >= 2
     }.collect { k, v -> v[1] }
 
     instColl = [:]
-    println "Adding ${moreThanOne.size()} instances (${recCnt} records) for ${timestamp} at ${newWhenSeen}"
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobsCnt} no jobs)"
     try {
         db.withBatch { stmt ->
             moreThanOne.each { j ->
