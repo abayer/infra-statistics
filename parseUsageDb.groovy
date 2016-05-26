@@ -398,6 +398,7 @@ def process(String timestamp, File logDir) {
     def instColl = [:]
     def recCnt = 0
 
+    def newWhenSeen = Date.parse("yyyyMM", timestamp).format("yyyy-MM-dd HH:mm:ss Z", TimeZone.getTimeZone("GMT"))
     logDir.eachFileMatch(~/$logRE/) { origGzFile ->
         if (db.rows("select * from seen_logs where filename = ${origGzFile.name}").isEmpty()) {
             db.execute("insert into seen_logs values (${origGzFile.name})")
@@ -482,7 +483,7 @@ def process(String timestamp, File logDir) {
                     containerId = alreadySeenContainers[j.servletContainer]
                 }
 
-                def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, j.whenSeen)
+                def recordId = addInstanceRecord(db, installId, containerId, jenkinsVersionId, newWhenSeen)
 
                 j.nodes?.each { n ->
                     def jvmName = n.containsKey("jvm-name") && !(n."jvm-name" instanceof Boolean) ? n."jvm-name" : null
