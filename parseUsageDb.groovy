@@ -416,7 +416,7 @@ def process(String timestamp, File logDir) {
                 j.whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", j.timestamp)
                 if (!instColl.containsKey(installId)) {
                     instColl[installId] = [1, j, jobCnt]
-                } else if (j.whenSeen > instColl[installId][1].whenSeen) {
+                } else if (j.whenSeen > instColl[installId][1].whenSeen && jobCnt > 0) {
                     def runningCnt = instColl[installId][0] + 1
                     def runJ = instColl[installId][2] + jobCnt
                     instColl[installId] = [runningCnt, j, runJ]
@@ -443,7 +443,7 @@ def process(String timestamp, File logDir) {
     def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 && v[2] > 0 }
 
     println "Adding ${moreThanOne.size()} instances (${recCnt} records)"
-    def argh = [:]
+/*    def argh = [:]
     instColl.each { k, v ->
         if (!argh.containsKey(v[0])) {
             argh[v[0]] = []
@@ -453,7 +453,7 @@ def process(String timestamp, File logDir) {
 
     argh.each { k, v ->
         println " -- ${k}: ${v.size()}"
-    }
+    }*/
     instColl = [:]
     try {
         db.withBatch { stmt ->
