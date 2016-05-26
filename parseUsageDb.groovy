@@ -407,11 +407,14 @@ def process(String timestamp, File logDir) {
                 def j = slurper.parseText(l)
                 def installId = j.install
                 def ver = j.version
-
+                if (!noJobs.containsKey(installId)) {
+                    noJobs[installId] = 1
+                } else {
+                    noJobs[installId]++
+                }
                 def jobCnt = j.jobs.values().inject(0) { acc, val -> acc + val }
                 j.whenSeen = Date.parse("dd/MMM/yyyy:H:m:s Z", j.timestamp)
                 if (jobCnt > 0) {
-                    noJobs[installId] = false
                     if (!instColl.containsKey(installId)) {
                         instColl[installId] = [1, j]
                     } else if (j.whenSeen > instColl[installId][1].whenSeen) {
@@ -419,11 +422,6 @@ def process(String timestamp, File logDir) {
                         instColl[installId] = [runningCnt, j]
                     }
                     recCnt++
-                } else {
-                    if (!noJobs.containsKey(installId)) {
-//                        println "${installId}: jobs: ${j.jobs}"
-                        noJobs[installId] = true
-                    }
                 }
             }
         } else {
@@ -445,8 +443,10 @@ def process(String timestamp, File logDir) {
     db.connection.autoCommit = false
     def moreThanOne = instColl.findAll { k, v -> v[0] >= 2 }
 
-    println "Adding ${moreThanOne.size()} instances (${recCnt} records) (${noJobs.size()} no jobs)"
-    println " -- 1 appearance - ${instColl.findAll { k, v -> v[0] < 2 }.size()}"
+    println "Adding ${moreThanOne.size()} instances (${recCnt} records)"
+    noJobs.sort { a, b -> a.value <=> b.value }.each { k, v ->
+        println " -- ${k}: ${v} jobs"
+    }
     instColl = [:]
     try {
         db.withBatch { stmt ->
