@@ -111,7 +111,7 @@ def process(String timestamp/*such as '201112'*/, File logDir, File outputDir) {
             def builder = new StreamingJsonBuilder(w)
 
             builder {
-                uniqIds.each { String inst
+                uniqIds.each { String inst ->
                     def insts = mColl.find(install: inst)
                     if (insts.count() > 1) {
                         def toSave = []
