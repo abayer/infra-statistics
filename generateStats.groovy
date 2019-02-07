@@ -1,11 +1,16 @@
 #!/usr/bin/env groovy
+import groovyx.gpars.GParsPool
+
 // generate SVGs that constitutes http://stats.jenkins-ci.org/jenkins-stats/
 import java.util.zip.GZIPInputStream;
-
+import java.util.concurrent.ConcurrentHashMap
 import groovy.xml.MarkupBuilder
 
 @Grapes([
-    @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.13')
+    @GrabConfig(systemClassLoader=true),
+    @Grab(group='org.codehaus.jackson', module='jackson-mapper-asl', version='1.9.13'),
+    @Grab('org.codehaus.gpars:gpars:1.2.0'),
+    @Grab(group='mysql', module='mysql-connector-java', version='5.1.6')
 ])
 
 class Generator {
@@ -13,90 +18,120 @@ class Generator {
     def workingDir = new File("target")
     def svgDir = new File(workingDir, "svg")
 
-    def dateStr2totalJenkins = [:]
-    def dateStr2totalNodes = [:]
-    def dateStr2totalJobs = [:]
-    def dateStr2totalPluginsInstallations = [:]
+    def dateStr2totalJenkins = new ConcurrentHashMap()
+    def dateStr2totalNodes = new ConcurrentHashMap()
+    def dateStr2totalJobs = new ConcurrentHashMap()
+    def dateStr2totalPluginsInstallations = new ConcurrentHashMap()
 
 
-    def generateStats(file, targetDir) {
-
-        JenkinsMetricParser p = new JenkinsMetricParser()
-        def installations = p.parse(file)
-
-        def version2number = [:] as TreeMap
-        def plugin2number = [:]
-        def jobtype2number = [:]
-        def nodesOnOs2number = [:] as TreeMap
-        def executorCount2number = [:]
-
-        installations.each { instId, metric ->
-
-            //        println instId +"="+metric.jenkinsVersion
-            def currentNumber = version2number.get(metric.jenkinsVersion)
-            def number = currentNumber ? currentNumber + 1 : 1
-            version2number.put(metric.jenkinsVersion, number)
-
-            metric.plugins.each { pluginName, pluginVersion ->
-                def currentPluginNumber = plugin2number.get(pluginName)
-                currentPluginNumber = currentPluginNumber ? currentPluginNumber + 1 : 1
-                plugin2number.put(pluginName, currentPluginNumber)
-            }
-
-            metric.jobTypes.each { jobtype, jobNumber ->
-                def currentJobNumber = jobtype2number.get(jobtype)
-                currentJobNumber = currentJobNumber ? currentJobNumber + jobNumber : jobNumber
-                jobtype2number.put(jobtype, currentJobNumber)
-            }
-
-            metric.nodesOnOs.each { os, nodesNumber ->
-                os = os.toString()
-                def currentNodeNumber = nodesOnOs2number.get(os)
-                currentNodeNumber = currentNodeNumber ? currentNodeNumber + nodesNumber : nodesNumber
-                nodesOnOs2number.put(os, currentNodeNumber)
-            }
-
-            currentNumber = executorCount2number.get(metric.totalExecutors)
-            number = currentNumber ? currentNumber + 1 : 1
-            executorCount2number.put(metric.totalExecutors, number)
-
+    def generateStats(targetDir, origDb) {
+        def months = []
+        def monthsToShort = [:]
+        origDb.eachRow("select distinct month from jenkins") {
+            months << it.month
+            monthsToShort[it.month] = it.month.split("-").join("").substring(0, 6)
         }
 
-        def nodesOs = []
-        def nodesOsNrs = []
-        nodesOnOs2number.each{os, number ->
-            nodesOs.add(os)
-            nodesOsNrs.add(number)
+        GParsPool.withPool(10) {
+            months.sort { monthsToShort.get(it) }.eachParallel { m ->
+                def startTime = System.currentTimeMillis()
+                println "Starting month ${monthsToShort.get(m)} at ${new Date().format('yyyy.MM.dd HH:mm:ss')}"
+                def db = DBHelper.setupDB(workingDir)
+
+                def version2number = [:] as TreeMap
+                def plugin2number = [:]
+                def jobtype2number = [:]
+                def nodesOnOs2number = [:] as TreeMap
+                def executorCount2number = [:]
+                def installations = []
+                db.eachRow("select distinct instanceid from jenkins where month=$m") {
+                    installations << it.instanceid
+                }
+
+                installations.sort().each { instId ->
+                    db.eachRow("select * from jenkins where instanceid=$instId") {
+                        def currentNumber = version2number.get(it.version)
+                        def number = currentNumber ? currentNumber + 1 : 1
+                        version2number.put(it.version, number)
+
+                        db.eachRow("select * from plugin where instanceid=$instId and month=$m") {
+                            def currentPluginNumber = plugin2number.get(it.name)
+                            currentPluginNumber = currentPluginNumber ? currentPluginNumber + 1 : 1
+                            plugin2number.put(it.name, currentPluginNumber)
+                        }
+
+                        db.eachRow("select * from job where instanceid=$instId and month=$m") {
+                            def currentJobNumber = jobtype2number.get(it.type)
+                            currentJobNumber = currentJobNumber ? (currentJobNumber + it.jobnumber) : it.jobnumber
+                            jobtype2number.put(it.type, currentJobNumber)
+                        }
+
+                        db.eachRow("select * from node where instanceid=$instId and month=$m") {
+                            def currentNodeNumber = nodesOnOs2number.get(it.osname)
+                            currentNodeNumber = currentNodeNumber ? currentNodeNumber + it.nodenumber : it.nodenumber
+                            nodesOnOs2number.put(it.osname, currentNodeNumber)
+                        }
+
+                        db.eachRow("select * from executor where instanceid=$instId and month=$m") {
+                            def execNumber = executorCount2number.get(it.numberofexecutors)
+                            execNumber = execNumber ? execNumber + 1 : 1
+                            executorCount2number.put(it.numberofexecutors, execNumber)
+                        }
+                    }
+                }
+                def nodesOs = []
+                def nodesOsNrs = []
+                nodesOnOs2number.each { os, number ->
+                    nodesOs.add(os)
+                    nodesOsNrs.add(number)
+                }
+
+                def simplename = monthsToShort.get(m)
+
+                def totalJenkinsInstallations = version2number.inject(0) { input, version, number -> input + number }
+                createBarSVG("Jenkins installations (total: $totalJenkinsInstallations)", new File(targetDir, "$simplename-jenkins"), version2number, 10, false, {
+                    true
+                }) // {it.value >= 5})
+
+                def totalPluginInstallations = plugin2number.inject(0) { input, version, number -> input + number }
+                createBarSVG("Plugin installations (total: $totalPluginInstallations)", new File(targetDir, "$simplename-plugins"), plugin2number, 100, true, {
+                    !it.key.startsWith("privateplugin")
+                })
+                createBarSVG("Top Plugin installations (installations > 500)", new File(targetDir, "$simplename-top-plugins500"), plugin2number, 100, true, {
+                    !it.key.startsWith("privateplugin") && it.value > 500
+                })
+                createBarSVG("Top Plugin installations (installations > 1000)", new File(targetDir, "$simplename-top-plugins1000"), plugin2number, 100, true, {
+                    !it.key.startsWith("privateplugin") && it.value > 1000
+                })
+                createBarSVG("Top Plugin installations (installations > 2500)", new File(targetDir, "$simplename-top-plugins2500"), plugin2number, 100, true, {
+                    !it.key.startsWith("privateplugin") && it.value > 2500
+                })
+
+                def totalJobs = jobtype2number.inject(0) { input, version, number -> input + number }
+                createBarSVG("Jobs (total: $totalJobs)", new File(targetDir, "$simplename-jobs"), jobtype2number, 1000, true, {
+                    !it.key.startsWith("private")
+                })
+
+                def totalNodes = nodesOnOs2number.inject(0) { input, version, number -> input + number }
+                createBarSVG("Nodes (total: $totalNodes)", new File(targetDir, "$simplename-nodes"), nodesOnOs2number, 10, true, {
+                    true
+                })
+
+                createPieSVG("Nodes", new File(targetDir, "$simplename-nodesPie"), nodesOsNrs, 200, 300, 150, Helper.COLORS, nodesOs, 370, 20)
+
+                def totalExecutors = executorCount2number.inject(0) { result, executors, number -> result + (executors * number) }
+                createBarSVG("Executors per install (total: $totalExecutors)", new File(targetDir, "$simplename-total-executors"), executorCount2number, 25, false, {
+                    true
+                })
+
+                def dateStr = simplename
+                dateStr2totalJenkins.put dateStr, totalJenkinsInstallations
+                dateStr2totalPluginsInstallations.put dateStr, totalPluginInstallations
+                dateStr2totalJobs.put dateStr, totalJobs
+                dateStr2totalNodes.put dateStr, totalNodes
+                println "Finishing month ${monthsToShort.get(m)} in ${((System.currentTimeMillis() - startTime) / 1000).round(0)}s"
+            }
         }
-
-        def simplename = file.name.substring(0, file.name.indexOf("."))
-
-        def totalJenkinsInstallations = version2number.inject(0){input, version, number -> input + number}
-        createBarSVG("Jenkins installations (total: $totalJenkinsInstallations)", new File(targetDir, "$simplename-jenkins"), version2number, 10, false, {true}) // {it.value >= 5})
-
-        def totalPluginInstallations = plugin2number.inject(0){input, version, number -> input + number}
-        createBarSVG("Plugin installations (total: $totalPluginInstallations)", new File(targetDir, "$simplename-plugins"), plugin2number, 100, true, {!it.key.startsWith("privateplugin")})
-        createBarSVG("Top Plugin installations (installations > 500)", new File(targetDir, "$simplename-top-plugins500"), plugin2number, 100, true, {!it.key.startsWith("privateplugin") && it.value > 500})
-        createBarSVG("Top Plugin installations (installations > 1000)", new File(targetDir, "$simplename-top-plugins1000"), plugin2number, 100, true, {!it.key.startsWith("privateplugin") && it.value > 1000})
-        createBarSVG("Top Plugin installations (installations > 2500)", new File(targetDir, "$simplename-top-plugins2500"), plugin2number, 100, true, {!it.key.startsWith("privateplugin") && it.value > 2500})
-
-        def totalJobs = jobtype2number.inject(0){input, version, number -> input + number}
-        createBarSVG("Jobs (total: $totalJobs)", new File(targetDir, "$simplename-jobs"), jobtype2number, 1000, true, {!it.key.startsWith("private")})
-
-        def totalNodes = nodesOnOs2number.inject(0){input, version, number -> input + number}
-        createBarSVG("Nodes (total: $totalNodes)", new File(targetDir, "$simplename-nodes"), nodesOnOs2number, 10, true, {true})
-
-        createPieSVG("Nodes", new File(targetDir, "$simplename-nodesPie"), nodesOsNrs, 200, 300, 150, Helper.COLORS, nodesOs, 370, 20)
-
-        def totalExecutors = executorCount2number.inject(0){ result, executors, number -> result + (executors * number)  }
-        createBarSVG("Executors per install (total: $totalExecutors)", new File(targetDir, "$simplename-total-executors"), executorCount2number, 25, false, {true})
-
-        def dateStr = file.name.substring(0, 6)
-        dateStr2totalJenkins.put dateStr, totalJenkinsInstallations
-        dateStr2totalPluginsInstallations.put dateStr, totalPluginInstallations
-        dateStr2totalJobs.put dateStr, totalJobs
-        dateStr2totalNodes.put dateStr, totalNodes
-
     }
 
     /**
@@ -382,12 +417,9 @@ class Generator {
     def run(String[] args) {
         svgDir.deleteDir()
         svgDir.mkdirs()
-        if (args.length>0) {
-            args.each { name -> generateStats(new File(name),svgDir) }
-        } else {
-            workingDir.eachFileMatch( ~".*json.gz" ) { file -> generateStats(file, svgDir) }
-        }
-        // workingDir.eachFileMatch( ~"201109.json.gz" ) { file -> generateStats(file, svgDir) }
+
+        def db = DBHelper.setupDB(workingDir)
+        generateStats(svgDir, db)
 
         createBarSVG("Total Jenkins installations", new File(svgDir, "total-jenkins"), dateStr2totalJenkins, 100, false, {true})
         createBarSVG("Total Nodes", new File(svgDir, "total-nodes"), dateStr2totalNodes, 100, false, {true})

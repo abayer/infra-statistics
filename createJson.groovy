@@ -1,5 +1,8 @@
+import groovyx.gpars.GParsPool
 @GrabConfig(systemClassLoader=true)
 @Grab('org.xerial:sqlite-jdbc:3.16.1')
+@Grab('org.codehaus.gpars:gpars:1.2.0')
+@Grab(group='mysql', module='mysql-connector-java', version='5.1.6')
 import org.sqlite.*
 import java.sql.*
 import java.util.zip.GZIPInputStream;
@@ -8,15 +11,16 @@ import groovy.xml.MarkupBuilder
 
 class Generator {
 
-    def db
     def statsDir
+    def workingDir
 
-    def Generator(workingDir, db){
-        this.db = db
+    def Generator(workingDir){
+        this.workingDir = workingDir
         this.statsDir = new File(workingDir, "stats")
     }
 
     def generateInstallationsJson() {
+        def db = DBHelper.setupDB(workingDir)
 
         println "generating installations.json..."
         def installations = [:]
@@ -35,6 +39,7 @@ class Generator {
     }
 
     def generateOldestJenkinsPerPlugin() {
+        def db = DBHelper.setupDB(workingDir)
 
         // Loading map of instanceid:version for the last month
         def instanceVersion = [:]
@@ -96,6 +101,7 @@ class Generator {
     }
 
     def generatePluginsJson() {
+        def db = DBHelper.setupDB(workingDir)
 
         println "fetching plugin names..."
         def names = []
@@ -108,33 +114,37 @@ class Generator {
             total[it.month] = it.number;
         }
 
-        names.each{ name ->
-            def month2number = [:]
-            def month2percentage = [:]
-            def file = new File(statsDir, "${name}.stats.json")
-            // fetch the number of installations per plugin per month
-            db.eachRow("SELECT month, COUNT(*) AS number FROM plugin WHERE name = $name GROUP BY month ORDER BY month ASC;") {
-                month2number.put it.month, it.number
-                month2percentage[it.month] = (it.number as float)*100/(total[it.month] as float)
+        GParsPool.withPool(16) {
+            names.eachParallel { name ->
+                def pdb = DBHelper.setupDB(workingDir)
+                def month2number = [:]
+                def month2percentage = [:]
+                def file = new File(statsDir, "${name}.stats.json")
+                // fetch the number of installations per plugin per month
+                pdb.eachRow("SELECT month, COUNT(*) AS number FROM plugin WHERE name = $name GROUP BY month ORDER BY month ASC;") {
+                    month2number.put it.month, it.number
+                    month2percentage[it.month] = (it.number as float) * 100 / (total[it.month] as float)
+                }
+
+                def version2number = [:]
+                def version2percentage = [:]
+                // fetch the number of installations per plugin version this month
+                pdb.eachRow("SELECT COUNT(*) AS number, version, month FROM plugin WHERE name = $name AND month = (SELECT MAX(month) FROM plugin) GROUP BY version, month") {
+                    version2number.put it.version, it.number
+                    version2percentage[it.version] = (it.number as float) * 100 / (total[it.month] as float)
+                }
+
+                def json = new groovy.json.JsonBuilder()
+                json name: name, installations: month2number, installationsPercentage: month2percentage, installationsPerVersion: version2number, installationsPercentagePerVersion: version2percentage
+                file << groovy.json.JsonOutput.prettyPrint(json.toString())
+                println "wrote: $file.absolutePath"
             }
-			
-			def version2number = [:]
-			def version2percentage = [:]
-			// fetch the number of installations per plugin version this month
-			db.eachRow("SELECT COUNT(*) AS number, version, month FROM plugin WHERE name = $name AND month = (SELECT MAX(month) FROM plugin) GROUP BY version") {
-				version2number.put it.version, it.number
-				version2percentage[it.version] = (it.number as float)*100/(total[it.month] as float)
-			}
-			
-			def json = new groovy.json.JsonBuilder()
-            json name:name, installations:month2number, installationsPercentage:month2percentage, installationsPerVersion:version2number, installationsPercentagePerVersion:version2percentage
-            file << groovy.json.JsonOutput.prettyPrint(json.toString())
-            println "wrote: $file.absolutePath"
         }
 
     }
 
     def generateLatestNumbersJson() {
+        def db = DBHelper.setupDB(workingDir)
         println "generating latestNumbers.json..."
         def plugins = [:]
         def latestMonth;
@@ -155,6 +165,7 @@ class Generator {
 
     // like installations.json, but cumulative descending: number indicates number of installations of given version or higher
     def generateCapabilitiesJson() {
+        def db = DBHelper.setupDB(workingDir)
         println "generating capabilities.json..."
         def installations = [:]
         def higherCap = 0
@@ -175,8 +186,9 @@ class Generator {
 
     // for each month, counts the number of JVM versions in use (using strict filtering to ignore weird/local JVM version names)
     def generateJvmJson() {
+        def db = DBHelper.setupDB(workingDir)
         final def JVM_VERSIONS = ["1.5", "1.6", "1.7", "1.8", "9", "10", "11", "12", "13"]
-        def jvmVersionsRestriction = "(jvmv='" + JVM_VERSIONS.join("' OR jvmv='") + "')"
+        def jvmVersionsRestriction = "(jvmversion like'" + JVM_VERSIONS.join("' OR jvmversion='") + "')"
         def fileName = 'jvms.json'
         println "generating $fileName..."
         def months = []
@@ -187,7 +199,7 @@ class Generator {
             def jvmCount = [:]
             db.eachRow("SELECT SUBSTR(jvmversion,1,3) AS jvmv,COUNT(0) AS cnt " +
                     "FROM jenkins " +
-                    "WHERE month=$month AND $jvmVersionsRestriction " +
+                    "WHERE month='$month' AND $jvmVersionsRestriction " +
                     "GROUP BY month,jvmv " +
                     "ORDER BY jvmv;") {
                 jvmCount.put(it.jvmv, it.cnt)
@@ -196,12 +208,12 @@ class Generator {
         }
 
         def jvmPerDate2DotxOnly = [:]
-        months.findAll { it > 1459536318000 } // Ignore data before April 2016, when Jenkins 2.0 was released
+        months.findAll { new java.util.Date().parse('yyyy-MM-dd HH:mm:ss',it).getTime() > 1459536318000 } // Ignore data before April 2016, when Jenkins 2.0 was released
               .each    { month ->
             def jvmCount = [:]
             db.eachRow("SELECT SUBSTR(jvmversion,1,3) AS jvmv,COUNT(0) AS cnt " +
                     "FROM jenkins " +
-                    "WHERE month=$month AND $jvmVersionsRestriction AND version like '2.%'" +
+                    "WHERE month='$month' AND $jvmVersionsRestriction AND version like '2.%'" +
                     "GROUP BY month,jvmv " +
                     "ORDER BY jvmv;") {
                 jvmCount.put(it.jvmv, it.cnt)
@@ -232,8 +244,7 @@ class Generator {
 
 
 def workingDir = new File("target")
-def db = DBHelper.setupDB(workingDir)
-new Generator(workingDir, db).run()
+new Generator(workingDir).run()
 
 
 
